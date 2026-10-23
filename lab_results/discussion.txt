@@ -1,0 +1,32 @@
+LAB 2: EXPLANATIONS
+1. US equity alone dominates EU equity alone: it has a higher return (8% vs. 7%)
+   and lower risk (16% vs. 18%). However, EU equity can still be useful in
+   diversified portfolios: covariances with the overall portfolio are decisive.
+   The EU allocation in the MV portfolio is approximately 0.908%.
+2. The goals are combined linearly. The variance w.T @ Sigma @ w remains
+   quadratic; for alpha>0, the weighted sum is a convex quadratic program.
+3. alpha weights risk, while p weights the return shortfall. Normalization is
+   calculated from the two anchor portfolios and held fixed for comparisons across K.
+4. Both alpha=0 and alpha=.25 choose 100% US equity: a range of preferences
+   can select the same corner point of the feasible simplex.
+5. A 6% return requires at least 8.7659467% volatility. Under an 8% cap,
+   the maximum possible return is 5.7126685%. The two hard limits are therefore
+   infeasible together. A 9% floor and a 3% cap are also infeasible.
+6. Goal programming allows positive deviations. At p=.25 only the return goal
+   is missed; at p=.45 both goals are missed; at p=.50 only the variance goal
+   is missed. For p=.45, the optimum lies between the cap and floor solutions:
+   their marginal costs are equal. The frontier slope dr/dv there is
+   (1-p)*Delta_r/(p*Delta_v).
+7. For compatible goals (5%, 8%), G=0 for many portfolios, including
+   dominated portfolios. Stage 2 minimizes F_.5 subject to G<=G*+1e-8. The
+   tolerance permits a very small deviation from the exact lexicographic optimum.
+8. "I MUST stay below 8%": use a hard cap. "I WANT a 6% return and about 8%
+   risk": use soft goals with an agreed value of p. Expected return is not guaranteed.
+9. K=3 does not change F_.5 because the unconstrained optimum holds three assets.
+   K=2 restricts the choice; K=1 permits only single-asset portfolios. A smaller
+   K cannot improve the optimal frontier. The union of supports is non-convex,
+   so the sparse frontier need not be concave, and some efficient points can
+   only be reached using epsilon constraints.
+10. The variance deviation dv has squared decimal units; return shortfalls are
+    reported in percentage points. G-scores with different values of p are not
+    directly comparable.
