@@ -4,6 +4,7 @@ Lab 3
 #Import everything
 import numpy as np
 from scipy.optimize import linprog
+from scipy.optimize import minimize
 
 # Data
 
@@ -102,3 +103,59 @@ for i, asset in enumerate(assets):
     if np.isclose(w_opt[i], ub[i]):
         print(f"{asset}: upper bound ({ub[i]:.0%})")
 print("The model holds no GOVT bonds, as they have the lowest expected return and are not needed to satisfy any constraints.")
+
+"""
+A.3
+"""
+lambdas=np.array([1,2,5,10])*0.01
+
+constraints = [{'type': 'eq', 'fun': lambda w: sum(w) - 1}]
+bounds = [(0, ub[i]) for i in range(len(assets))]
+
+w_opt = list()
+for lam in lambdas:
+
+    def objective(w):
+        m = mu @ w
+        s2 = w.T @ cov @ w
+        return -(m - lam * s2)
+
+    result = minimize(
+        objective,
+        x0 = w_current,
+        method='SLSQP',
+        bounds=bounds,
+        constraints=constraints
+    )
+
+    # Optimal weights
+    w_opt.append(result.x)
+
+print("\n========== A.3: MEAN-VARIANCE OPTIMIZATION ==========\n")
+
+# Header
+print(f"{'Lambda':>8} {'GOVT':>10} {'CORP':>10} {'EQTY':>10} {'INFR':>10} {'Return':>12} {'Variance':>12} {'Std Dev':>10}")
+print("-" * 96)
+
+# Print results for each lambda
+for i in range(len(lambdas)):
+
+    w = w_opt[i]
+
+    m = mu @ w
+    s2 = w.T @ cov @ w
+    sig = np.sqrt(s2)
+
+    print(
+        f"{lambdas[i]:>8.3f} "
+        f"{w[0]*100:>9.2f}% "
+        f"{w[1]*100:>9.2f}% "
+        f"{w[2]*100:>9.2f}% "
+        f"{w[3]*100:>9.2f}% "
+        f"{m:>11.2f}% "
+        f"{s2:>12.4f} "
+        f"{sig:>9.2f}%"
+    )
+
+print("-" * 96)
+
