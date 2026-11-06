@@ -2,6 +2,9 @@
 Lab 3
 """ 
 #Import everything
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import linprog
 from scipy.optimize import minimize
@@ -90,6 +93,7 @@ if not a2_result.success:
 
 w_opt = a2_result.x
 m_opt = mu @ w_opt
+w_expected = w_opt.copy()
 
 print("\n========== PART A.2: EXPECTED VALUE MODEL ==========")
 print("Optimal portfolio weights:")
@@ -107,55 +111,129 @@ print("The model holds no GOVT bonds, as they have the lowest expected return an
 """
 A.3
 """
-lambdas=np.array([1,2,5,10])*0.01
+lambdas = np.array([0.01, 0.02, 0.05, 0.10])
 
-constraints = [{'type': 'eq', 'fun': lambda w: sum(w) - 1}]
+constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
 bounds = [(0, ub[i]) for i in range(len(assets))]
 
-w_opt = list()
+mean_variance_weights = []
 for lam in lambdas:
-
     def objective(w):
-        m = mu @ w
-        s2 = w.T @ cov @ w
-        return -(m - lam * s2)
+        return -(mu @ w - lam * (w @ cov @ w))
 
     result = minimize(
         objective,
-        x0 = w_current,
-        method='SLSQP',
+        x0=w_current,
+        method="SLSQP",
         bounds=bounds,
         constraints=constraints
     )
-
-    # Optimal weights
-    w_opt.append(result.x)
+    if not result.success:
+        raise RuntimeError(f"A.3 optimization failed for lambda={lam}: {result.message}")
+    mean_variance_weights.append(result.x)
 
 print("\n========== A.3: MEAN-VARIANCE OPTIMIZATION ==========\n")
 
-# Header
-print(f"{'Lambda':>8} {'GOVT':>10} {'CORP':>10} {'EQTY':>10} {'INFR':>10} {'Return':>12} {'Variance':>12} {'Std Dev':>10}")
-print("-" * 96)
+print(
+    f"{'Lambda':>8} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9} "
+    f"{'m (%)':>10} {'s (%)':>10} {'Worst (%)':>11}"
+)
+print("-" * 88)
 
-# Print results for each lambda
-for i in range(len(lambdas)):
-
-    w = w_opt[i]
-
-    m = mu @ w
-    s2 = w.T @ cov @ w
-    sig = np.sqrt(s2)
-
+portfolio_metrics = []
+for lam, weights in zip(lambdas, mean_variance_weights):
+    mean = mu @ weights
+    std_dev = np.sqrt(weights @ cov @ weights)
+    worst = np.min(weights @ R)
+    portfolio_metrics.append((mean, std_dev, worst))
     print(
-        f"{lambdas[i]:>8.3f} "
-        f"{w[0]*100:>9.2f}% "
-        f"{w[1]*100:>9.2f}% "
-        f"{w[2]*100:>9.2f}% "
-        f"{w[3]*100:>9.2f}% "
-        f"{m:>11.2f}% "
-        f"{s2:>12.4f} "
-        f"{sig:>9.2f}%"
+        f"{lam:>8.2f} "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        + f"{mean:>9.2f}% {std_dev:>9.2f}% {worst:>10.2f}%"
     )
+print("-" * 88)
 
-print("-" * 96)
+current_std = np.sqrt(w_current @ cov @ w_current)
+current_worst = np.min(w_current @ R)
+expected_std = np.sqrt(w_expected @ cov @ w_expected)
 
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(current_std, m_1, marker="X", s=100, label="Current portfolio")
+ax.scatter(expected_std, m_opt, marker="*", s=160, label="Expected-value optimum")
+for lam, (mean, std_dev, _) in zip(lambdas, portfolio_metrics):
+    ax.scatter(std_dev, mean, s=75, label=f"Mean-variance, $\\lambda={lam:.2f}$")
+ax.set_xlabel("Standard deviation, $s$ (%)")
+ax.set_ylabel("Expected return, $m$ (%)")
+ax.set_title("Mean-variance portfolios")
+ax.grid(True, alpha=0.3)
+ax.legend()
+fig.tight_layout()
+
+results_dir = Path(__file__).resolve().parent / "lab_results"
+results_dir.mkdir(exist_ok=True)
+plot_path = results_dir / "mean_variance_portfolios.png"
+fig.savefig(plot_path, dpi=170)
+plt.close(fig)
+print(f"Plot saved to: {plot_path}")
+
+beating_current = [
+    lam
+    for lam, (mean, std_dev, _) in zip(lambdas, portfolio_metrics)
+    if mean > m_1 and std_dev < current_std
+]
+print(
+    "Current portfolio is not mean-variance efficient: "
+    + (
+        "lambda=" + ", ".join(f"{lam:.2f}" for lam in beating_current)
+        + " has both higher expected return and lower risk."
+        if beating_current
+        else "none of the tested portfolios has both higher expected return and lower risk."
+    )
+)
+
+"""
+Part B:
+B.1
+"""
+
+print("\n========== B.1: SCENARIO-BY-SCENARIO OPTIMIZATION ==========\n")
+scenario_results = []
+for scenario_index, scenario in enumerate(scenarios):
+    scenario_returns = R[:, scenario_index]
+    result = linprog(
+        c=-scenario_returns,
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"B.1 optimization failed for scenario {scenario}: {result.message}"
+        )
+
+    weights = result.x.copy()
+    weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+    value = scenario_returns @ weights
+    fill_order = np.argsort(-scenario_returns)
+    fill_rule = " -> ".join(
+        f"{assets[i]} ({scenario_returns[i]:.0f}%)" for i in fill_order
+    )
+    scenario_results.append((scenario, weights, value, fill_rule))
+
+print(
+    f"{'Scenario':<10} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9} "
+    f"{'v* (%)':>10}"
+)
+print("-" * 60)
+for scenario, weights, value, _ in scenario_results:
+    print(
+        f"{scenario:<10} "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        + f"{value:>9.2f}%"
+    )
+print("-" * 60)
+print("Rule: fill the portfolio in descending order of scenario returns,")
+print("respecting each asset's upper bound, until the 100% budget is invested.")
+for scenario, _, _, fill_rule in scenario_results:
+    print(f"{scenario}: {fill_rule}")
