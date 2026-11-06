@@ -3,6 +3,7 @@ Lab 3
 """ 
 #Import everything
 import numpy as np
+from scipy.optimize import linprog
 
 # Data
 
@@ -18,6 +19,7 @@ w_current = np.array([0.40, 0.20, 0.30, 0.10])
 
 """
 Part A: 
+A.1
 """
 mu = R @ p # expected returns
 sig = np.zeros(len(assets))
@@ -28,7 +30,6 @@ for i in range(len(assets)):
 sig = np.sqrt(sig)
 for i in range(len(assets)):
     for j in range(len(assets)):
-        print(i,j)
         cov[i,j] = sum(p[s]*(R[i,s]-mu[i])*(R[j,s]-mu[j]) for s in range(len(p)))
 
 #m,s way 1
@@ -42,7 +43,7 @@ m_2 = portfolio_returns.T@p
 s2_2 = sum((portfolio_returns[s]-m_2)**2*p[s] for s in range(len(p)))
 
 #Print A.1
-print("\n========== PART A: RESULTS ==========\n")
+print("\n========== PART A.1: RESULTS ==========\n")
 
 # Expected returns
 print("Expected returns per asset:")
@@ -70,3 +71,34 @@ print(f"Standard deviation:         {np.sqrt(s2_1):.2f}%")
 print(f"Worst-case return:          {worst_return:.2f}%")
 
 print("\n=======================================")
+
+"""
+A.2
+"""
+
+# Maximize expected return subject to full investment and asset-class limits.
+a2_result = linprog(
+    c=-mu,
+    A_eq=np.ones((1, len(assets))),
+    b_eq=[1.0],
+    bounds=[(0.0, float(limit)) for limit in ub],
+    method="highs",
+)
+if not a2_result.success:
+    raise RuntimeError(f"A.2 optimization failed: {a2_result.message}")
+
+w_opt = a2_result.x
+m_opt = mu @ w_opt
+
+print("\n========== PART A.2: EXPECTED VALUE MODEL ==========")
+print("Optimal portfolio weights:")
+for i, asset in enumerate(assets):
+    print(f"{asset:<6}: {w_opt[i]:.2f}")
+print(f"Maximum expected return: {m_opt:.2f}%")
+print("Binding policy limits:")
+for i, asset in enumerate(assets):
+    if np.isclose(w_opt[i], 0.0):
+        print(f"{asset}: lower bound (0%)")
+    if np.isclose(w_opt[i], ub[i]):
+        print(f"{asset}: upper bound ({ub[i]:.0%})")
+print("The model holds no GOVT bonds, as they have the lowest expected return and are not needed to satisfy any constraints.")
