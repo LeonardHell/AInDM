@@ -744,3 +744,175 @@ else:
         "return is in INFL (and also RECN at epsilon=110), while the worst "
         "footprint is in BOOM."
     )
+
+"""
+D.3
+"""
+
+set_scalarization_weights = [0, 1, 3, 5, 10]
+set_robust_results = []
+for emission_weight in set_scalarization_weights:
+    scalarized_returns = R.T - emission_weight * C.T / 100
+    scalarized_return_constraints = np.column_stack(
+        (-scalarized_returns, np.ones(len(scenarios)))
+    )
+    result = linprog(
+        c=[0.0] * len(assets) + [-1.0],
+        A_ub=scalarized_return_constraints,
+        b_ub=np.zeros(len(scenarios)),
+        A_eq=robust_budget_constraint,
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"D.3 set-based optimization failed for lambda2={emission_weight}: "
+            f"{result.message}"
+        )
+
+    weights = result.x[:-1].copy()
+    weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+    scenario_returns = weights @ R
+    scenario_footprints = weights @ C
+    scalarized_scenario_values = (
+        scenario_returns - emission_weight * scenario_footprints / 100
+    )
+    worst_scalarized_value = np.min(scalarized_scenario_values)
+    worst_scalarized_scenarios = [
+        scenarios[i]
+        for i, value in enumerate(scalarized_scenario_values)
+        if np.isclose(value, worst_scalarized_value)
+    ]
+    worst_footprint = np.max(scenario_footprints)
+
+    point_result = linprog(
+        c=[0.0] * len(assets) + [-1.0],
+        A_ub=np.vstack(
+            (
+                np.column_stack((-R.T, np.ones(len(scenarios)))),
+                np.column_stack((C.T, np.zeros(len(scenarios))),
+                ),
+            )
+        ),
+        b_ub=np.concatenate(
+            (
+                np.zeros(len(scenarios)),
+                np.full(len(scenarios), worst_footprint),
+            )
+        ),
+        A_eq=robust_budget_constraint,
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+        method="highs",
+    )
+    if not point_result.success:
+        raise RuntimeError(
+            f"D.3 point-based comparison failed for lambda2={emission_weight}, "
+            f"epsilon={worst_footprint:.6f}: {point_result.message}"
+        )
+
+    worst_return = np.min(scenario_returns)
+    point_based_worst_return = point_result.x[-1]
+    point_based_efficient = np.isclose(
+        worst_return, point_based_worst_return, atol=1e-7
+    )
+    set_robust_results.append(
+        (
+            emission_weight,
+            weights,
+            scenario_returns,
+            scenario_footprints,
+            worst_scalarized_scenarios,
+            worst_return,
+            worst_footprint,
+            point_result.x[:-1],
+            point_based_worst_return,
+            point_based_efficient,
+        )
+    )
+
+print("\n========== D.3: SET-BASED ROBUST EFFICIENT SOLUTIONS ==========\n")
+for (
+    emission_weight,
+    weights,
+    scenario_returns,
+    scenario_footprints,
+    worst_scalarized_scenarios,
+    worst_return,
+    worst_footprint,
+    _,
+    _,
+    _,
+) in set_robust_results:
+    print(f"\nLambda2 = {emission_weight}")
+    print(
+        "Portfolio: "
+        + ", ".join(
+            f"{asset}={weight * 100:.2f}%" for asset, weight in zip(assets, weights)
+        )
+    )
+    print(f"{'Scenario':<10} {'R (%)':>10} {'C (tCO2e)':>12}")
+    print("-" * 34)
+    for scenario, scenario_return, scenario_footprint in zip(
+        scenarios, scenario_returns, scenario_footprints
+    ):
+        print(f"{scenario:<10} {scenario_return:>9.2f}% {scenario_footprint:>12.2f}")
+    worst_vectors = ", ".join(
+        f"{scenario}: ({scenario_returns[scenarios.index(scenario)]:.2f}%, "
+        f"{scenario_footprints[scenarios.index(scenario)]:.2f})"
+        for scenario in worst_scalarized_scenarios
+    )
+    print(
+        "Worst scalarized vector(s) (R, C) in "
+        f"{'/'.join(worst_scalarized_scenarios)}: {worst_vectors}"
+    )
+
+print("\nComparison with D.2 at each set-based portfolio's worst footprint:")
+print(
+    f"{'Lambda2':>8} {'Worst C':>10} {'Set worst R':>13} "
+    f"{'D2 best worst R':>17} {'D2 efficient?':>15}"
+)
+print("-" * 70)
+for (
+    emission_weight,
+    _,
+    _,
+    _,
+    _,
+    worst_return,
+    worst_footprint,
+    _,
+    point_based_worst_return,
+    point_based_efficient,
+) in set_robust_results:
+    print(
+        f"{emission_weight:>8} {worst_footprint:>10.2f} "
+        f"{worst_return:>12.2f}% {point_based_worst_return:>16.2f}% "
+        f"{'yes' if point_based_efficient else 'no':>15}"
+    )
+print("-" * 70)
+not_point_efficient = [
+    emission_weight
+    for (
+        emission_weight,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        point_based_efficient,
+    ) in set_robust_results
+    if not point_based_efficient
+]
+print(
+    "Set-based portfolios not point-based efficient: "
+    + (
+        ", ".join(f"lambda2={weight}" for weight in not_point_efficient)
+        if not_point_efficient
+        else "none"
+    )
+)
