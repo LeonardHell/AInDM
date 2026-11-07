@@ -172,7 +172,7 @@ fig.tight_layout()
 # Resolve output relative to this file when run as a script; in interactive
 # sessions, where __file__ is unavailable, use the current working directory.
 script_dir = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
-results_dir = script_dir /"Lab"/ "Lab3"/"lab_results"
+results_dir = script_dir /"lab_results"
 results_dir.mkdir(exist_ok=True)
 plot_path = results_dir / "mean_variance_portfolios.png"
 fig.savefig(plot_path, dpi=170)
@@ -270,4 +270,25 @@ print(f"Value of perfect information: {value_perfect_information:.2f} percentage
 print(
     f"At a EUR {portfolio_value_eur:,.0f} portfolio: "
     f"EUR {value_perfect_information_eur:,.0f} per year"
+)
+
+"""
+B.3
+"""
+
+plug_in_expected_return = mu @ expected_scenario_weights
+expected_value_return = m_opt
+plug_in_difference = plug_in_expected_return - expected_value_return
+plug_in_difference_eur = plug_in_difference / 100 * portfolio_value_eur
+
+print("\n========== B.3: PLUG-IN AND ROUTE COMPARISON ==========\n")
+print("Expected scenario-optimal weights (plug-in portfolio):")
+for asset, weight in zip(assets, expected_scenario_weights):
+    print(f"{asset:<6}: {weight * 100:>6.2f}%")
+print(f"\nRoute 1 - optimize expected return (A2): {expected_value_return:.3f}% per year")
+print(f"Route 2 - evaluate E[w*] under expected returns: {plug_in_expected_return:.3f}% per year")
+print(f"Difference (Route 2 - Route 1): {plug_in_difference:.3f} percentage points")
+print(
+    f"At a EUR {portfolio_value_eur:,.0f} portfolio, Route 2 earns "
+    f"EUR {plug_in_difference_eur:,.0f} per year relative to Route 1."
 )
