@@ -240,3 +240,34 @@ print("Rule: fill the portfolio in descending order of scenario returns,")
 print("respecting each asset's upper bound, until the 100% budget is invested.")
 for scenario, _, _, fill_rule in scenario_results:
     print(f"{scenario}: {fill_rule}")
+
+"""
+B.2
+"""
+
+scenario_weights = np.array([weights for _, weights, _, _ in scenario_results])
+scenario_values = np.array([value for _, _, value, _ in scenario_results])
+expected_scenario_weights = p @ scenario_weights
+std_scenario_weights = np.sqrt(
+    p @ ((scenario_weights - expected_scenario_weights) ** 2)
+)
+expected_perfect_info_value = p @ scenario_values
+value_perfect_information = expected_perfect_info_value - m_opt
+portfolio_value_eur = 2_000_000_000
+value_perfect_information_eur = value_perfect_information / 100 * portfolio_value_eur
+
+print("\n========== B.2: LAW OF THE SOLUTION ==========\n")
+print(f"{'Asset':<8} {'E[w*]':>10} {'SD(w*)':>10}")
+print("-" * 30)
+for asset, mean_weight, std_weight in zip(
+    assets, expected_scenario_weights, std_scenario_weights
+):
+    print(f"{asset:<8} {mean_weight * 100:>9.2f}% {std_weight * 100:>9.2f}%")
+print("-" * 30)
+print(f"E[v*]: {expected_perfect_info_value:.2f}% per year")
+print(f"Best expected value without information: {m_opt:.2f}% per year")
+print(f"Value of perfect information: {value_perfect_information:.2f} percentage points")
+print(
+    f"At a EUR {portfolio_value_eur:,.0f} portfolio: "
+    f"EUR {value_perfect_information_eur:,.0f} per year"
+)
