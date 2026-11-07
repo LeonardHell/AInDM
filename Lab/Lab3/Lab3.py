@@ -603,3 +603,144 @@ print(
     f"Guarantee: realized return is at least {robust_worst_return:.2f}% in every "
     "scenario in U; scenarios outside U are not covered."
 )
+
+"""
+D.2
+"""
+
+point_front_results = []
+for emission_limit in range(40, 111, 10):
+    return_constraints = np.column_stack(
+        (-R.T, np.ones(len(scenarios)))
+    )
+    footprint_constraints = np.column_stack(
+        (C.T, np.zeros(len(scenarios)))
+    )
+    result = linprog(
+        c=[0.0] * len(assets) + [-1.0],
+        A_ub=np.vstack((return_constraints, footprint_constraints)),
+        b_ub=np.concatenate(
+            (np.zeros(len(scenarios)), np.full(len(scenarios), emission_limit))
+        ),
+        A_eq=robust_budget_constraint,
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"D.2 point-based optimization failed for epsilon={emission_limit}: "
+            f"{result.message}"
+        )
+
+    weights = result.x[:-1].copy()
+    weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+    scenario_returns = weights @ R
+    scenario_footprints = weights @ C
+    worst_return = np.min(scenario_returns)
+    worst_footprint = np.max(scenario_footprints)
+    worst_return_scenarios = [
+        scenarios[i]
+        for i, value in enumerate(scenario_returns)
+        if np.isclose(value, worst_return)
+    ]
+    worst_footprint_scenarios = [
+        scenarios[i]
+        for i, value in enumerate(scenario_footprints)
+        if np.isclose(value, worst_footprint)
+    ]
+    point_front_results.append(
+        (
+            emission_limit,
+            weights,
+            result.x[-1],
+            worst_return_scenarios,
+            worst_footprint,
+            worst_footprint_scenarios,
+        )
+    )
+
+print("\n========== D.2: POINT-BASED ROBUST FRONT ==========\n")
+print(
+    f"{'Epsilon':>7} {'GOVT':>8} {'CORP':>8} {'EQTY':>8} {'INFR':>8} "
+    f"{'Worst R':>9} {'Worst R in':>14} {'Worst C':>9} {'Worst C in':>14}"
+)
+print("-" * 100)
+for (
+    emission_limit,
+    weights,
+    worst_return,
+    worst_return_scenarios,
+    worst_footprint,
+    worst_footprint_scenarios,
+) in point_front_results:
+    print(
+        f"{emission_limit:>7} "
+        + "".join(f"{weight * 100:>7.2f}% " for weight in weights)
+        + f"{worst_return:>8.2f}% "
+        + f"{'/'.join(worst_return_scenarios):>14} "
+        + f"{worst_footprint:>9.2f} "
+        + f"{'/'.join(worst_footprint_scenarios):>14}"
+    )
+print("-" * 100)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+front_worst_footprints = [row[4] for row in point_front_results]
+front_worst_returns = [row[2] for row in point_front_results]
+ax.plot(
+    front_worst_footprints,
+    front_worst_returns,
+    marker="o",
+    label="Point-based robust frontier",
+)
+for index, (
+    emission_limit,
+    weights,
+    worst_return,
+    _,
+    worst_footprint,
+    _,
+) in enumerate(point_front_results):
+    label_offset = (-24, -16) if emission_limit == 100 else (6, 8)
+    ax.annotate(
+        f"$\\epsilon={emission_limit}$",
+        (worst_footprint, worst_return),
+        xytext=label_offset,
+        textcoords="offset points",
+        fontsize=8,
+    )
+ax.set_xlabel("Worst-case footprint (tCO2e per EUR 1m)")
+ax.set_ylabel("Worst-case return (%)")
+ax.set_title("Point-based robust return-footprint frontier")
+ax.grid(True, alpha=0.3)
+ax.legend()
+fig.tight_layout()
+point_front_plot_path = results_dir / "robust_point_frontier.png"
+fig.savefig(point_front_plot_path, dpi=170)
+plt.close(fig)
+print(f"D.2 plot saved to: {point_front_plot_path}")
+
+same_scenario_cases = [
+    emission_limit
+    for (
+        emission_limit,
+        _,
+        _,
+        worst_return_scenarios,
+        _,
+        worst_footprint_scenarios,
+    ) in point_front_results
+    if set(worst_return_scenarios) & set(worst_footprint_scenarios)
+]
+if same_scenario_cases:
+    print(
+        "The two worst cases coincide for epsilon="
+        + ", ".join(map(str, same_scenario_cases))
+        + "."
+    )
+else:
+    print(
+        "The two worst cases do not coincide at any tested epsilon: the worst "
+        "return is in INFL (and also RECN at epsilon=110), while the worst "
+        "footprint is in BOOM."
+    )
