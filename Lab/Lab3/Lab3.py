@@ -916,3 +916,83 @@ print(
         else "none"
     )
 )
+
+"""
+D.4
+"""
+
+set_5_result = next(
+    result for result in set_robust_results if result[0] == 5
+)
+set_5_weights = set_5_result[1]
+rb_returns = robust_weights @ R
+rb_footprints = robust_weights @ C
+set_5_returns = set_5_weights @ R
+set_5_footprints = set_5_weights @ C
+
+rb_worst_return = np.min(rb_returns)
+rb_worst_footprint = np.max(rb_footprints)
+set_5_worst_return = np.min(set_5_returns)
+set_5_worst_footprint = np.max(set_5_footprints)
+
+print("\n========== D.4: TWO PORTFOLIOS, TWO VERDICTS ==========\n")
+print("Point-based worst vectors (minimum return, maximum footprint):")
+print(
+    f"RB: ({rb_worst_return:.2f}%, {rb_worst_footprint:.2f} tCO2e/EUR 1m)"
+)
+print(
+    f"S5: ({set_5_worst_return:.2f}%, "
+    f"{set_5_worst_footprint:.2f} tCO2e/EUR 1m)"
+)
+print(
+    "Point-based winner: "
+    + (
+        "RB"
+        if rb_worst_return >= set_5_worst_return
+        and rb_worst_footprint <= set_5_worst_footprint
+        and (
+            rb_worst_return > set_5_worst_return
+            or rb_worst_footprint < set_5_worst_footprint
+        )
+        else "S5"
+    )
+)
+
+print("\nOutcome-by-outcome set-dominance check (RB outcome vs S5 outcomes):")
+print(
+    f"{'RB scenario':<12} {'RB (R,C)':>22} {'S5 outcome(s) RB improves on':<34} "
+    f"{'Improves?':>10}"
+)
+print("-" * 85)
+rb_outcomes_improve = []
+for scenario_index, scenario in enumerate(scenarios):
+    improved_s5_scenarios = [
+        scenarios[s5_index]
+        for s5_index in range(len(scenarios))
+        if rb_returns[scenario_index] >= set_5_returns[s5_index] - 1e-9
+        and rb_footprints[scenario_index] <= set_5_footprints[s5_index] + 1e-9
+        and (
+            rb_returns[scenario_index] > set_5_returns[s5_index] + 1e-9
+            or rb_footprints[scenario_index] < set_5_footprints[s5_index] - 1e-9
+        )
+    ]
+    rb_outcomes_improve.append(bool(improved_s5_scenarios))
+    outcome_text = (
+        ", ".join(improved_s5_scenarios) if improved_s5_scenarios else "none"
+    )
+    print(
+        f"{scenario:<12} "
+        f"({rb_returns[scenario_index]:.2f}%, {rb_footprints[scenario_index]:.2f}) "
+        f"{outcome_text:<34} "
+        f"{'yes' if improved_s5_scenarios else 'no':>10}"
+    )
+print("-" * 85)
+rb_beats_set_5 = all(rb_outcomes_improve)
+print(f"Does RB beat S5 in the set sense? {'Yes' if rb_beats_set_5 else 'No'}")
+print(
+    "RB wins the point-based comparison because its worst return is higher "
+    "(-1.61% in RECN/INFL versus -2.58% in RECN for S5) and its worst footprint "
+    "is lower (101.76 in BOOM versus 107.75 in BOOM for S5). "
+    "But RB does not beat S5 set-wise: RB improves S5 outcomes for BASE, SLOW, "
+    "and RECN, but not for BOOM or INFL."
+)
