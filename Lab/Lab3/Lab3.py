@@ -458,3 +458,68 @@ print(
     "Starting from A2, replace CORP first with GOVT: this reduces expected "
     "emissions at the smallest expected-return loss per unit of carbon saved."
 )
+
+"""
+C.2
+"""
+
+scenario_co2_prices = [1, 3, 5, 10]
+scenario_price_results = []
+
+for co2_price in scenario_co2_prices:
+    weights_by_scenario = []
+    for scenario_index, scenario in enumerate(scenarios):
+        net_scenario_returns = (
+            R[:, scenario_index] - co2_price * C[:, scenario_index] / 100
+        )
+        result = linprog(
+            c=-net_scenario_returns,
+            A_eq=np.ones((1, len(assets))),
+            b_eq=[1.0],
+            bounds=[(0.0, float(limit)) for limit in ub],
+            method="highs",
+        )
+        if not result.success:
+            raise RuntimeError(
+                f"C.2 optimization failed for tau={co2_price}, "
+                f"scenario={scenario}: {result.message}"
+            )
+        weights = result.x.copy()
+        weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+        weights_by_scenario.append(weights)
+
+    weights_by_scenario = np.array(weights_by_scenario)
+    expected_weights_by_price = p @ weights_by_scenario
+    scenario_price_results.append(
+        (co2_price, weights_by_scenario, expected_weights_by_price)
+    )
+
+print("\n========== C.2: SCENARIO-SPECIFIC CO2 PRICE ==========\n")
+print("Optimal weights by price and scenario (percent):")
+for co2_price, weights_by_scenario, expected_weights_by_price in scenario_price_results:
+    print(f"\nTau = {co2_price}")
+    print(
+        f"{'Scenario':<10} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9}"
+    )
+    print("-" * 50)
+    for scenario, weights in zip(scenarios, weights_by_scenario):
+        print(
+            f"{scenario:<10} "
+            + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        )
+    print("-" * 50)
+    print(
+        "E[w*]:     "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in expected_weights_by_price)
+    )
+
+base_govt_switch_price = (R[1, 1] - R[0, 1]) / (
+    (C[1, 1] - C[0, 1]) / 100
+)
+print(
+    "\nThe first tested price at which a scenario-optimal portfolio changes is "
+    "tau=5 in BASE: the CORP/GOVT net-return ranking crosses at "
+    f"tau={base_govt_switch_price:.2f}. "
+    "Above that threshold GOVT's lower emissions compensate for its lower "
+    "scenario return, so its 20% position replaces CORP."
+)
