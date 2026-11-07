@@ -172,7 +172,7 @@ fig.tight_layout()
 # Resolve output relative to this file when run as a script; in interactive
 # sessions, where __file__ is unavailable, use the current working directory.
 script_dir = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
-results_dir = script_dir / "Lab3"/"lab_results"
+results_dir = script_dir /"Lab"/ "Lab3"/"lab_results"
 results_dir.mkdir(exist_ok=True)
 plot_path = results_dir / "mean_variance_portfolios.png"
 fig.savefig(plot_path, dpi=170)
