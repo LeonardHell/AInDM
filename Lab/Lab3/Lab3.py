@@ -996,3 +996,32 @@ print(
     "But RB does not beat S5 set-wise: RB improves S5 outcomes for BASE, SLOW, "
     "and RECN, but not for BOOM or INFL."
 )
+
+"""
+Part E: Committee memo
+"""
+
+recommended_metrics = comparison_metrics["Mean-variance, lambda=0.05"]
+current_metrics = comparison_metrics["Current"]
+memo = f"""To: Meridian Investment Committee
+Subject: Recommended allocation
+
+Recommendation: adopt the mean-variance portfolio for lambda = 0.05: {mean_variance_005_weights[0] * 100:.2f}% GOVT, {mean_variance_005_weights[1] * 100:.2f}% CORP, {mean_variance_005_weights[2] * 100:.2f}% EQTY and {mean_variance_005_weights[3] * 100:.2f}% INFR.
+
+Metric (annual)                 Recommended       Current
+Expected return                 {recommended_metrics[0]:.2f}%             {current_metrics[0]:.2f}%
+Worst-case return              {recommended_metrics[2]:.2f}%            {current_metrics[2]:.2f}%
+Expected footprint             {recommended_metrics[3]:.2f}              {current_metrics[3]:.2f}
+Worst-case footprint           {recommended_metrics[4]:.2f}              {current_metrics[4]:.2f}
+
+Footprints are tCO2e per EUR 1 million invested. The recommendation gives up {current_metrics[0] - recommended_metrics[0]:.2f} percentage points of expected return while improving the worst-case return and reducing both expected and worst-case emissions.
+
+CIO: The expected return is marginally below the current portfolio, but the trade-off materially improves downside and emissions outcomes.
+Risk officer: The worst-case return improves from {current_metrics[2]:.2f}% to {recommended_metrics[2]:.2f}%; the max-min robust model offers a stronger guarantee ({robust_worst_return:.2f}%) if downside protection is the overriding objective.
+Head of sustainability: Expected and worst-case footprints fall from {current_metrics[3]:.2f} to {recommended_metrics[3]:.2f} and from {current_metrics[4]:.2f} to {recommended_metrics[4]:.2f}, respectively.
+
+I trust the robust max-min model most for stress protection because it does not rely on scenario probabilities and guarantees its bound within the stated uncertainty set; I recommend the lambda = 0.05 portfolio as the better overall committee compromise.
+"""
+memo_path = results_dir / "committee_memo.txt"
+memo_path.write_text(memo, encoding="utf-8")
+print(f"\nCommittee memo saved to: {memo_path}")

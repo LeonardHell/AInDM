@@ -1,0 +1,18 @@
+To: Meridian Investment Committee
+Subject: Recommended allocation
+
+Recommendation: adopt the mean-variance portfolio for lambda = 0.05: 62.17% GOVT, 0.00% CORP, 17.83% EQTY and 20.00% INFR.
+
+Metric (annual)                 Recommended       Current
+Expected return                 3.49%             3.59%
+Worst-case return              -4.74%            -5.70%
+Expected footprint             60.03              78.00
+Worst-case footprint           71.40              97.00
+
+Footprints are tCO2e per EUR 1 million invested. The recommendation gives up 0.10 percentage points of expected return while improving the worst-case return and reducing both expected and worst-case emissions.
+
+CIO: The expected return is marginally below the current portfolio, but the trade-off materially improves downside and emissions outcomes.
+Risk officer: The worst-case return improves from -5.70% to -4.74%; the max-min robust model offers a stronger guarantee (-1.61%) if downside protection is the overriding objective.
+Head of sustainability: Expected and worst-case footprints fall from 78.00 to 60.03 and from 97.00 to 71.40, respectively.
+
+I trust the robust max-min model most for stress protection because it does not rely on scenario probabilities and guarantees its bound within the stated uncertainty set; I recommend the lambda = 0.05 portfolio as the better overall committee compromise.
