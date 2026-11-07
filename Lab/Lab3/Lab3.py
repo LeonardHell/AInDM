@@ -292,3 +292,169 @@ print(
     f"At a EUR {portfolio_value_eur:,.0f} portfolio, Route 2 earns "
     f"EUR {plug_in_difference_eur:,.0f} per year relative to Route 1."
 )
+
+"""
+C.1
+"""
+
+expected_emissions = C @ p
+co2_prices = [0, 1, 3, 5, 10]
+emission_limits = [40, 60, 80, 100]
+
+price_results = []
+for co2_price in co2_prices:
+    net_return = mu - co2_price * expected_emissions / 100
+    result = linprog(
+        c=-net_return,
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"C.1 CO2-price optimization failed for tau={co2_price}: {result.message}"
+        )
+    weights = result.x
+    price_results.append(
+        (co2_price, weights, mu @ weights, expected_emissions @ weights)
+    )
+
+emission_results = []
+for emission_limit in emission_limits:
+    result = linprog(
+        c=-mu,
+        A_ub=[expected_emissions],
+        b_ub=[emission_limit],
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"C.1 epsilon-constraint optimization failed for "
+            f"epsilon={emission_limit}: {result.message}"
+        )
+    weights = result.x
+    emission_results.append(
+        (emission_limit, weights, mu @ weights, expected_emissions @ weights)
+    )
+
+print("\n========== C.1: CO2 PRICE ==========\n")
+print(
+    f"{'Tau':>5} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9} "
+    f"{'E[C]':>10} {'E[R] (%)':>11}"
+)
+print("-" * 75)
+for co2_price, weights, mean_return, emissions in price_results:
+    print(
+        f"{co2_price:>5.0f} "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        + f"{emissions:>9.2f} {mean_return:>10.2f}"
+    )
+
+print("\n========== C.1: EPSILON CONSTRAINT ==========\n")
+print(
+    f"{'Epsilon':>8} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9} "
+    f"{'E[C]':>10} {'E[R] (%)':>11}"
+)
+print("-" * 78)
+for emission_limit, weights, mean_return, emissions in emission_results:
+    print(
+        f"{emission_limit:>8.0f} "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        + f"{emissions:>9.2f} {mean_return:>10.2f}"
+    )
+
+minimum_emissions_weights = np.zeros(len(assets))
+minimum_emissions_weights[0] = 1.0
+minimum_emissions = expected_emissions @ minimum_emissions_weights
+maximum_efficient_emissions = expected_emissions @ w_expected
+frontier_emission_limits = np.linspace(
+    minimum_emissions, maximum_efficient_emissions, 201
+)
+frontier_points = []
+for emission_limit in frontier_emission_limits:
+    result = linprog(
+        c=-mu,
+        A_ub=[expected_emissions],
+        b_ub=[emission_limit],
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            "C.1 frontier optimization failed for "
+            f"emission limit={emission_limit:.4f}: {result.message}"
+        )
+    frontier_points.append(
+        (expected_emissions @ result.x, mu @ result.x)
+    )
+frontier_points.extend(
+    (emissions, mean_return)
+    for _, _, mean_return, emissions in price_results
+)
+frontier_points.extend(
+    (emissions, mean_return)
+    for _, _, mean_return, emissions in emission_results
+)
+frontier_points.sort(key=lambda point: point[0])
+
+fig, ax = plt.subplots(figsize=(8, 6))
+frontier_emissions, frontier_returns = zip(*frontier_points)
+ax.plot(
+    frontier_emissions,
+    frontier_returns,
+    color="black",
+    alpha=0.55,
+    label="E-efficient frontier (epsilon sweep)",
+)
+for co2_price, weights, mean_return, emissions in price_results:
+    ax.scatter(
+        emissions,
+        mean_return,
+        marker="s",
+        s=65,
+        label=f"CO2 price $\\tau={co2_price}$",
+    )
+for index, (emission_limit, _, mean_return, emissions) in enumerate(emission_results):
+    ax.scatter(
+        emissions,
+        mean_return,
+        marker="D",
+        facecolors="none",
+        edgecolors="black",
+        linewidths=1.5,
+        s=90,
+        label=(
+            "Epsilon constraints ($\\epsilon=40, 60, 80, 100$)"
+            if index == 0
+            else "_nolegend_"
+        ),
+        zorder=4,
+    )
+ax.scatter(
+    expected_emissions @ w_current,
+    mu @ w_current,
+    marker="X",
+    s=110,
+    label="Current portfolio",
+    zorder=5,
+)
+ax.set_xlabel("Expected emissions, E[C] (tCO2e per EUR 1m)")
+ax.set_ylabel("Expected return, E[R] (%)")
+ax.set_title("Expected-return / emissions trade-off")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper left")
+fig.tight_layout()
+plot_path = results_dir / "carbon_efficient_frontier.png"
+fig.savefig(plot_path, dpi=170)
+plt.close(fig)
+print(f"\nC.1 plot saved to: {plot_path}")
+print(
+    "Starting from A2, replace CORP first with GOVT: this reduces expected "
+    "emissions at the smallest expected-return loss per unit of carbon saved."
+)
