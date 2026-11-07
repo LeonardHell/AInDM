@@ -523,3 +523,83 @@ print(
     "Above that threshold GOVT's lower emissions compensate for its lower "
     "scenario return, so its 20% position replaces CORP."
 )
+
+"""
+Part D:
+D.1
+"""
+
+robust_constraint_matrix = np.column_stack(
+    (-R.T, np.ones(len(scenarios)))
+)
+robust_budget_constraint = np.array([[1.0] * len(assets) + [0.0]])
+robust_result = linprog(
+    c=[0.0] * len(assets) + [-1.0],
+    A_ub=robust_constraint_matrix,
+    b_ub=np.zeros(len(scenarios)),
+    A_eq=robust_budget_constraint,
+    b_eq=[1.0],
+    bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+    method="highs",
+)
+if not robust_result.success:
+    raise RuntimeError(f"D.1 robust optimization failed: {robust_result.message}")
+
+robust_weights = robust_result.x[:-1]
+robust_worst_return = robust_result.x[-1]
+mean_variance_005_weights = mean_variance_weights[
+    int(np.flatnonzero(np.isclose(lambdas, 0.05))[0])
+]
+comparison_portfolios = [
+    ("Current", w_current),
+    ("Expected value", w_expected),
+    ("Mean-variance, lambda=0.05", mean_variance_005_weights),
+    ("Robust max-min", robust_weights),
+]
+
+print("\n========== D.1: MAX-MIN ROBUST PORTFOLIO ==========\n")
+print("Robust optimal weights:")
+for asset, weight in zip(assets, robust_weights):
+    print(f"{asset:<6}: {weight * 100:>6.2f}%")
+print(f"Guaranteed minimum return over U: {robust_worst_return:.2f}%")
+
+print("\nPortfolio comparison (probabilities used only for evaluation):")
+print(
+    f"{'Portfolio':<28} {'m (%)':>9} {'s (%)':>9} {'Worst R (%)':>12} "
+    f"{'E[C]':>10} {'Worst C':>10}"
+)
+print("-" * 85)
+comparison_metrics = {}
+for name, weights in comparison_portfolios:
+    mean_return = mu @ weights
+    std_dev = np.sqrt(weights @ cov @ weights)
+    scenario_returns = weights @ R
+    expected_footprint = expected_emissions @ weights
+    worst_footprint = np.max(weights @ C)
+    comparison_metrics[name] = (
+        mean_return,
+        std_dev,
+        np.min(scenario_returns),
+        expected_footprint,
+        worst_footprint,
+    )
+    print(
+        f"{name:<28} {mean_return:>8.2f}% {std_dev:>8.2f}% "
+        f"{np.min(scenario_returns):>11.2f}% {expected_footprint:>10.2f} "
+        f"{worst_footprint:>10.2f}"
+    )
+print("-" * 85)
+
+robustness_cost = (
+    comparison_metrics["Expected value"][0]
+    - comparison_metrics["Robust max-min"][0]
+)
+robustness_cost_eur = robustness_cost / 100 * portfolio_value_eur
+print(
+    f"Expected-return cost versus A2: {robustness_cost:.2f} percentage points "
+    f"(EUR {robustness_cost_eur:,.0f} per year on EUR {portfolio_value_eur:,.0f})."
+)
+print(
+    f"Guarantee: realized return is at least {robust_worst_return:.2f}% in every "
+    "scenario in U; scenarios outside U are not covered."
+)
