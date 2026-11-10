@@ -1,0 +1,20 @@
+Step 1. Define the question. State what is being optimized, predicted, controlled, learned, or
+compared. Avoid starting from an algorithm without first identifying the problem.
+
+Step 2. Formulate the model. Identify variables, parameters, objective functions, constraints,
+states/actions, losses, probability distributions, or game-theoretic players as appropriate.
+1
+Step 3. Choose a baseline. Begin with the simplest correct method. Examples include linear re-
+gression before a neural network, centralized training before federated learning, value iteration
+before Q-learning, or a weighted sum before NSGA-II.
+Step 4. Implement and validate. Test the method first on a small example where the expected
+behavior is known. When possible, compare numerical output with a closed-form solution.
+Step 5. Design experiments. Decide in advance which questions the experiments answer. Vary
+meaningful parameters and report appropriate metrics.
+Step 6. Analyze, do not only report. Explain why methods behave differently, what assumptions
+matter, and where the model fails.
+Step 7. Extend the baseline. Add at least one substantive extension: robustness, regularization,
+alternative objectives, heterogeneous data, uncertainty, another algorithm, sensitivity analy-
+sis, or a more realistic dataset.
+Step 8. Prepare the report and presentation. Present the mathematical formulation before
+computational results and connect conclusions explicitly to the course concepts.
