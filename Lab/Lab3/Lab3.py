@@ -292,3 +292,736 @@ print(
     f"At a EUR {portfolio_value_eur:,.0f} portfolio, Route 2 earns "
     f"EUR {plug_in_difference_eur:,.0f} per year relative to Route 1."
 )
+
+"""
+C.1
+"""
+
+expected_emissions = C @ p
+co2_prices = [0, 1, 3, 5, 10]
+emission_limits = [40, 60, 80, 100]
+
+price_results = []
+for co2_price in co2_prices:
+    net_return = mu - co2_price * expected_emissions / 100
+    result = linprog(
+        c=-net_return,
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"C.1 CO2-price optimization failed for tau={co2_price}: {result.message}"
+        )
+    weights = result.x
+    price_results.append(
+        (co2_price, weights, mu @ weights, expected_emissions @ weights)
+    )
+
+emission_results = []
+for emission_limit in emission_limits:
+    result = linprog(
+        c=-mu,
+        A_ub=[expected_emissions],
+        b_ub=[emission_limit],
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"C.1 epsilon-constraint optimization failed for "
+            f"epsilon={emission_limit}: {result.message}"
+        )
+    weights = result.x
+    emission_results.append(
+        (emission_limit, weights, mu @ weights, expected_emissions @ weights)
+    )
+
+print("\n========== C.1: CO2 PRICE ==========\n")
+print(
+    f"{'Tau':>5} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9} "
+    f"{'E[C]':>10} {'E[R] (%)':>11}"
+)
+print("-" * 75)
+for co2_price, weights, mean_return, emissions in price_results:
+    print(
+        f"{co2_price:>5.0f} "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        + f"{emissions:>9.2f} {mean_return:>10.2f}"
+    )
+
+print("\n========== C.1: EPSILON CONSTRAINT ==========\n")
+print(
+    f"{'Epsilon':>8} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9} "
+    f"{'E[C]':>10} {'E[R] (%)':>11}"
+)
+print("-" * 78)
+for emission_limit, weights, mean_return, emissions in emission_results:
+    print(
+        f"{emission_limit:>8.0f} "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        + f"{emissions:>9.2f} {mean_return:>10.2f}"
+    )
+
+minimum_emissions_weights = np.zeros(len(assets))
+minimum_emissions_weights[0] = 1.0
+minimum_emissions = expected_emissions @ minimum_emissions_weights
+maximum_efficient_emissions = expected_emissions @ w_expected
+frontier_emission_limits = np.linspace(
+    minimum_emissions, maximum_efficient_emissions, 201
+)
+frontier_points = []
+for emission_limit in frontier_emission_limits:
+    result = linprog(
+        c=-mu,
+        A_ub=[expected_emissions],
+        b_ub=[emission_limit],
+        A_eq=np.ones((1, len(assets))),
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            "C.1 frontier optimization failed for "
+            f"emission limit={emission_limit:.4f}: {result.message}"
+        )
+    frontier_points.append(
+        (expected_emissions @ result.x, mu @ result.x)
+    )
+frontier_points.extend(
+    (emissions, mean_return)
+    for _, _, mean_return, emissions in price_results
+)
+frontier_points.extend(
+    (emissions, mean_return)
+    for _, _, mean_return, emissions in emission_results
+)
+frontier_points.sort(key=lambda point: point[0])
+
+fig, ax = plt.subplots(figsize=(8, 6))
+frontier_emissions, frontier_returns = zip(*frontier_points)
+ax.plot(
+    frontier_emissions,
+    frontier_returns,
+    color="black",
+    alpha=0.55,
+    label="E-efficient frontier (epsilon sweep)",
+)
+for co2_price, weights, mean_return, emissions in price_results:
+    ax.scatter(
+        emissions,
+        mean_return,
+        marker="s",
+        s=65,
+        label=f"CO2 price $\\tau={co2_price}$",
+    )
+for index, (emission_limit, _, mean_return, emissions) in enumerate(emission_results):
+    ax.scatter(
+        emissions,
+        mean_return,
+        marker="D",
+        facecolors="none",
+        edgecolors="black",
+        linewidths=1.5,
+        s=90,
+        label=(
+            "Epsilon constraints ($\\epsilon=40, 60, 80, 100$)"
+            if index == 0
+            else "_nolegend_"
+        ),
+        zorder=4,
+    )
+ax.scatter(
+    expected_emissions @ w_current,
+    mu @ w_current,
+    marker="X",
+    s=110,
+    label="Current portfolio",
+    zorder=5,
+)
+ax.set_xlabel("Expected emissions, E[C] (tCO2e per EUR 1m)")
+ax.set_ylabel("Expected return, E[R] (%)")
+ax.set_title("Expected-return / emissions trade-off")
+ax.grid(True, alpha=0.3)
+ax.legend(loc="upper left")
+fig.tight_layout()
+plot_path = results_dir / "carbon_efficient_frontier.png"
+fig.savefig(plot_path, dpi=170)
+plt.close(fig)
+print(f"\nC.1 plot saved to: {plot_path}")
+print(
+    "Starting from A2, replace CORP first with GOVT: this reduces expected "
+    "emissions at the smallest expected-return loss per unit of carbon saved."
+)
+
+"""
+C.2
+"""
+
+scenario_co2_prices = [1, 3, 5, 10]
+scenario_price_results = []
+
+for co2_price in scenario_co2_prices:
+    weights_by_scenario = []
+    for scenario_index, scenario in enumerate(scenarios):
+        net_scenario_returns = (
+            R[:, scenario_index] - co2_price * C[:, scenario_index] / 100
+        )
+        result = linprog(
+            c=-net_scenario_returns,
+            A_eq=np.ones((1, len(assets))),
+            b_eq=[1.0],
+            bounds=[(0.0, float(limit)) for limit in ub],
+            method="highs",
+        )
+        if not result.success:
+            raise RuntimeError(
+                f"C.2 optimization failed for tau={co2_price}, "
+                f"scenario={scenario}: {result.message}"
+            )
+        weights = result.x.copy()
+        weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+        weights_by_scenario.append(weights)
+
+    weights_by_scenario = np.array(weights_by_scenario)
+    expected_weights_by_price = p @ weights_by_scenario
+    scenario_price_results.append(
+        (co2_price, weights_by_scenario, expected_weights_by_price)
+    )
+
+print("\n========== C.2: SCENARIO-SPECIFIC CO2 PRICE ==========\n")
+print("Optimal weights by price and scenario (percent):")
+for co2_price, weights_by_scenario, expected_weights_by_price in scenario_price_results:
+    print(f"\nTau = {co2_price}")
+    print(
+        f"{'Scenario':<10} {'GOVT':>9} {'CORP':>9} {'EQTY':>9} {'INFR':>9}"
+    )
+    print("-" * 50)
+    for scenario, weights in zip(scenarios, weights_by_scenario):
+        print(
+            f"{scenario:<10} "
+            + "".join(f"{weight * 100:>8.2f}% " for weight in weights)
+        )
+    print("-" * 50)
+    print(
+        "E[w*]:     "
+        + "".join(f"{weight * 100:>8.2f}% " for weight in expected_weights_by_price)
+    )
+
+base_govt_switch_price = (R[1, 1] - R[0, 1]) / (
+    (C[1, 1] - C[0, 1]) / 100
+)
+print(
+    "\nThe first tested price at which a scenario-optimal portfolio changes is "
+    "tau=5 in BASE: the CORP/GOVT net-return ranking crosses at "
+    f"tau={base_govt_switch_price:.2f}. "
+    "Above that threshold GOVT's lower emissions compensate for its lower "
+    "scenario return, so its 20% position replaces CORP."
+)
+
+"""
+Part D:
+D.1
+"""
+
+robust_constraint_matrix = np.column_stack(
+    (-R.T, np.ones(len(scenarios)))
+)
+robust_budget_constraint = np.array([[1.0] * len(assets) + [0.0]])
+robust_result = linprog(
+    c=[0.0] * len(assets) + [-1.0],
+    A_ub=robust_constraint_matrix,
+    b_ub=np.zeros(len(scenarios)),
+    A_eq=robust_budget_constraint,
+    b_eq=[1.0],
+    bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+    method="highs",
+)
+if not robust_result.success:
+    raise RuntimeError(f"D.1 robust optimization failed: {robust_result.message}")
+
+robust_weights = robust_result.x[:-1]
+robust_worst_return = robust_result.x[-1]
+mean_variance_005_weights = mean_variance_weights[
+    int(np.flatnonzero(np.isclose(lambdas, 0.05))[0])
+]
+comparison_portfolios = [
+    ("Current", w_current),
+    ("Expected value", w_expected),
+    ("Mean-variance, lambda=0.05", mean_variance_005_weights),
+    ("Robust max-min", robust_weights),
+]
+
+print("\n========== D.1: MAX-MIN ROBUST PORTFOLIO ==========\n")
+print("Robust optimal weights:")
+for asset, weight in zip(assets, robust_weights):
+    print(f"{asset:<6}: {weight * 100:>6.2f}%")
+print(f"Guaranteed minimum return over U: {robust_worst_return:.2f}%")
+
+print("\nPortfolio comparison (probabilities used only for evaluation):")
+print(
+    f"{'Portfolio':<28} {'m (%)':>9} {'s (%)':>9} {'Worst R (%)':>12} "
+    f"{'E[C]':>10} {'Worst C':>10}"
+)
+print("-" * 85)
+comparison_metrics = {}
+for name, weights in comparison_portfolios:
+    mean_return = mu @ weights
+    std_dev = np.sqrt(weights @ cov @ weights)
+    scenario_returns = weights @ R
+    expected_footprint = expected_emissions @ weights
+    worst_footprint = np.max(weights @ C)
+    comparison_metrics[name] = (
+        mean_return,
+        std_dev,
+        np.min(scenario_returns),
+        expected_footprint,
+        worst_footprint,
+    )
+    print(
+        f"{name:<28} {mean_return:>8.2f}% {std_dev:>8.2f}% "
+        f"{np.min(scenario_returns):>11.2f}% {expected_footprint:>10.2f} "
+        f"{worst_footprint:>10.2f}"
+    )
+print("-" * 85)
+
+robustness_cost = (
+    comparison_metrics["Expected value"][0]
+    - comparison_metrics["Robust max-min"][0]
+)
+robustness_cost_eur = robustness_cost / 100 * portfolio_value_eur
+print(
+    f"Expected-return cost versus A2: {robustness_cost:.2f} percentage points "
+    f"(EUR {robustness_cost_eur:,.0f} per year on EUR {portfolio_value_eur:,.0f})."
+)
+print(
+    f"Guarantee: realized return is at least {robust_worst_return:.2f}% in every "
+    "scenario in U; scenarios outside U are not covered."
+)
+
+"""
+D.2
+"""
+
+point_front_results = []
+for emission_limit in range(40, 111, 10):
+    return_constraints = np.column_stack(
+        (-R.T, np.ones(len(scenarios)))
+    )
+    footprint_constraints = np.column_stack(
+        (C.T, np.zeros(len(scenarios)))
+    )
+    result = linprog(
+        c=[0.0] * len(assets) + [-1.0],
+        A_ub=np.vstack((return_constraints, footprint_constraints)),
+        b_ub=np.concatenate(
+            (np.zeros(len(scenarios)), np.full(len(scenarios), emission_limit))
+        ),
+        A_eq=robust_budget_constraint,
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"D.2 point-based optimization failed for epsilon={emission_limit}: "
+            f"{result.message}"
+        )
+
+    weights = result.x[:-1].copy()
+    weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+    scenario_returns = weights @ R
+    scenario_footprints = weights @ C
+    worst_return = np.min(scenario_returns)
+    worst_footprint = np.max(scenario_footprints)
+    worst_return_scenarios = [
+        scenarios[i]
+        for i, value in enumerate(scenario_returns)
+        if np.isclose(value, worst_return)
+    ]
+    worst_footprint_scenarios = [
+        scenarios[i]
+        for i, value in enumerate(scenario_footprints)
+        if np.isclose(value, worst_footprint)
+    ]
+    point_front_results.append(
+        (
+            emission_limit,
+            weights,
+            result.x[-1],
+            worst_return_scenarios,
+            worst_footprint,
+            worst_footprint_scenarios,
+        )
+    )
+
+print("\n========== D.2: POINT-BASED ROBUST FRONT ==========\n")
+print(
+    f"{'Epsilon':>7} {'GOVT':>8} {'CORP':>8} {'EQTY':>8} {'INFR':>8} "
+    f"{'Worst R':>9} {'Worst R in':>14} {'Worst C':>9} {'Worst C in':>14}"
+)
+print("-" * 100)
+for (
+    emission_limit,
+    weights,
+    worst_return,
+    worst_return_scenarios,
+    worst_footprint,
+    worst_footprint_scenarios,
+) in point_front_results:
+    print(
+        f"{emission_limit:>7} "
+        + "".join(f"{weight * 100:>7.2f}% " for weight in weights)
+        + f"{worst_return:>8.2f}% "
+        + f"{'/'.join(worst_return_scenarios):>14} "
+        + f"{worst_footprint:>9.2f} "
+        + f"{'/'.join(worst_footprint_scenarios):>14}"
+    )
+print("-" * 100)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+front_worst_footprints = [row[4] for row in point_front_results]
+front_worst_returns = [row[2] for row in point_front_results]
+ax.plot(
+    front_worst_footprints,
+    front_worst_returns,
+    marker="o",
+    label="Point-based robust frontier",
+)
+for index, (
+    emission_limit,
+    weights,
+    worst_return,
+    _,
+    worst_footprint,
+    _,
+) in enumerate(point_front_results):
+    label_offset = (-24, -16) if emission_limit == 100 else (6, 8)
+    ax.annotate(
+        f"$\\epsilon={emission_limit}$",
+        (worst_footprint, worst_return),
+        xytext=label_offset,
+        textcoords="offset points",
+        fontsize=8,
+    )
+ax.set_xlabel("Worst-case footprint (tCO2e per EUR 1m)")
+ax.set_ylabel("Worst-case return (%)")
+ax.set_title("Point-based robust return-footprint frontier")
+ax.grid(True, alpha=0.3)
+ax.legend()
+fig.tight_layout()
+point_front_plot_path = results_dir / "robust_point_frontier.png"
+fig.savefig(point_front_plot_path, dpi=170)
+plt.close(fig)
+print(f"D.2 plot saved to: {point_front_plot_path}")
+
+same_scenario_cases = [
+    emission_limit
+    for (
+        emission_limit,
+        _,
+        _,
+        worst_return_scenarios,
+        _,
+        worst_footprint_scenarios,
+    ) in point_front_results
+    if set(worst_return_scenarios) & set(worst_footprint_scenarios)
+]
+if same_scenario_cases:
+    print(
+        "The two worst cases coincide for epsilon="
+        + ", ".join(map(str, same_scenario_cases))
+        + "."
+    )
+else:
+    print(
+        "The two worst cases do not coincide at any tested epsilon: the worst "
+        "return is in INFL (and also RECN at epsilon=110), while the worst "
+        "footprint is in BOOM."
+    )
+
+"""
+D.3
+"""
+
+set_scalarization_weights = [0, 1, 3, 5, 10]
+set_robust_results = []
+for emission_weight in set_scalarization_weights:
+    scalarized_returns = R.T - emission_weight * C.T / 100
+    scalarized_return_constraints = np.column_stack(
+        (-scalarized_returns, np.ones(len(scenarios)))
+    )
+    result = linprog(
+        c=[0.0] * len(assets) + [-1.0],
+        A_ub=scalarized_return_constraints,
+        b_ub=np.zeros(len(scenarios)),
+        A_eq=robust_budget_constraint,
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+        method="highs",
+    )
+    if not result.success:
+        raise RuntimeError(
+            f"D.3 set-based optimization failed for lambda2={emission_weight}: "
+            f"{result.message}"
+        )
+
+    weights = result.x[:-1].copy()
+    weights[np.isclose(weights, 0.0, atol=1e-9)] = 0.0
+    scenario_returns = weights @ R
+    scenario_footprints = weights @ C
+    scalarized_scenario_values = (
+        scenario_returns - emission_weight * scenario_footprints / 100
+    )
+    worst_scalarized_value = np.min(scalarized_scenario_values)
+    worst_scalarized_scenarios = [
+        scenarios[i]
+        for i, value in enumerate(scalarized_scenario_values)
+        if np.isclose(value, worst_scalarized_value)
+    ]
+    worst_footprint = np.max(scenario_footprints)
+
+    point_result = linprog(
+        c=[0.0] * len(assets) + [-1.0],
+        A_ub=np.vstack(
+            (
+                np.column_stack((-R.T, np.ones(len(scenarios)))),
+                np.column_stack((C.T, np.zeros(len(scenarios))),
+                ),
+            )
+        ),
+        b_ub=np.concatenate(
+            (
+                np.zeros(len(scenarios)),
+                np.full(len(scenarios), worst_footprint),
+            )
+        ),
+        A_eq=robust_budget_constraint,
+        b_eq=[1.0],
+        bounds=[(0.0, float(limit)) for limit in ub] + [(None, None)],
+        method="highs",
+    )
+    if not point_result.success:
+        raise RuntimeError(
+            f"D.3 point-based comparison failed for lambda2={emission_weight}, "
+            f"epsilon={worst_footprint:.6f}: {point_result.message}"
+        )
+
+    worst_return = np.min(scenario_returns)
+    point_based_worst_return = point_result.x[-1]
+    point_based_efficient = np.isclose(
+        worst_return, point_based_worst_return, atol=1e-7
+    )
+    set_robust_results.append(
+        (
+            emission_weight,
+            weights,
+            scenario_returns,
+            scenario_footprints,
+            worst_scalarized_scenarios,
+            worst_return,
+            worst_footprint,
+            point_result.x[:-1],
+            point_based_worst_return,
+            point_based_efficient,
+        )
+    )
+
+print("\n========== D.3: SET-BASED ROBUST EFFICIENT SOLUTIONS ==========\n")
+for (
+    emission_weight,
+    weights,
+    scenario_returns,
+    scenario_footprints,
+    worst_scalarized_scenarios,
+    worst_return,
+    worst_footprint,
+    _,
+    _,
+    _,
+) in set_robust_results:
+    print(f"\nLambda2 = {emission_weight}")
+    print(
+        "Portfolio: "
+        + ", ".join(
+            f"{asset}={weight * 100:.2f}%" for asset, weight in zip(assets, weights)
+        )
+    )
+    print(f"{'Scenario':<10} {'R (%)':>10} {'C (tCO2e)':>12}")
+    print("-" * 34)
+    for scenario, scenario_return, scenario_footprint in zip(
+        scenarios, scenario_returns, scenario_footprints
+    ):
+        print(f"{scenario:<10} {scenario_return:>9.2f}% {scenario_footprint:>12.2f}")
+    worst_vectors = ", ".join(
+        f"{scenario}: ({scenario_returns[scenarios.index(scenario)]:.2f}%, "
+        f"{scenario_footprints[scenarios.index(scenario)]:.2f})"
+        for scenario in worst_scalarized_scenarios
+    )
+    print(
+        "Worst scalarized vector(s) (R, C) in "
+        f"{'/'.join(worst_scalarized_scenarios)}: {worst_vectors}"
+    )
+
+print("\nComparison with D.2 at each set-based portfolio's worst footprint:")
+print(
+    f"{'Lambda2':>8} {'Worst C':>10} {'Set worst R':>13} "
+    f"{'D2 best worst R':>17} {'D2 efficient?':>15}"
+)
+print("-" * 70)
+for (
+    emission_weight,
+    _,
+    _,
+    _,
+    _,
+    worst_return,
+    worst_footprint,
+    _,
+    point_based_worst_return,
+    point_based_efficient,
+) in set_robust_results:
+    print(
+        f"{emission_weight:>8} {worst_footprint:>10.2f} "
+        f"{worst_return:>12.2f}% {point_based_worst_return:>16.2f}% "
+        f"{'yes' if point_based_efficient else 'no':>15}"
+    )
+print("-" * 70)
+not_point_efficient = [
+    emission_weight
+    for (
+        emission_weight,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        point_based_efficient,
+    ) in set_robust_results
+    if not point_based_efficient
+]
+print(
+    "Set-based portfolios not point-based efficient: "
+    + (
+        ", ".join(f"lambda2={weight}" for weight in not_point_efficient)
+        if not_point_efficient
+        else "none"
+    )
+)
+
+"""
+D.4
+"""
+
+set_5_result = next(
+    result for result in set_robust_results if result[0] == 5
+)
+set_5_weights = set_5_result[1]
+rb_returns = robust_weights @ R
+rb_footprints = robust_weights @ C
+set_5_returns = set_5_weights @ R
+set_5_footprints = set_5_weights @ C
+
+rb_worst_return = np.min(rb_returns)
+rb_worst_footprint = np.max(rb_footprints)
+set_5_worst_return = np.min(set_5_returns)
+set_5_worst_footprint = np.max(set_5_footprints)
+
+print("\n========== D.4: TWO PORTFOLIOS, TWO VERDICTS ==========\n")
+print("Point-based worst vectors (minimum return, maximum footprint):")
+print(
+    f"RB: ({rb_worst_return:.2f}%, {rb_worst_footprint:.2f} tCO2e/EUR 1m)"
+)
+print(
+    f"S5: ({set_5_worst_return:.2f}%, "
+    f"{set_5_worst_footprint:.2f} tCO2e/EUR 1m)"
+)
+print(
+    "Point-based winner: "
+    + (
+        "RB"
+        if rb_worst_return >= set_5_worst_return
+        and rb_worst_footprint <= set_5_worst_footprint
+        and (
+            rb_worst_return > set_5_worst_return
+            or rb_worst_footprint < set_5_worst_footprint
+        )
+        else "S5"
+    )
+)
+
+print("\nOutcome-by-outcome set-dominance check (RB outcome vs S5 outcomes):")
+print(
+    f"{'RB scenario':<12} {'RB (R,C)':>22} {'S5 outcome(s) RB improves on':<34} "
+    f"{'Improves?':>10}"
+)
+print("-" * 85)
+rb_outcomes_improve = []
+for scenario_index, scenario in enumerate(scenarios):
+    improved_s5_scenarios = [
+        scenarios[s5_index]
+        for s5_index in range(len(scenarios))
+        if rb_returns[scenario_index] >= set_5_returns[s5_index] - 1e-9
+        and rb_footprints[scenario_index] <= set_5_footprints[s5_index] + 1e-9
+        and (
+            rb_returns[scenario_index] > set_5_returns[s5_index] + 1e-9
+            or rb_footprints[scenario_index] < set_5_footprints[s5_index] - 1e-9
+        )
+    ]
+    rb_outcomes_improve.append(bool(improved_s5_scenarios))
+    outcome_text = (
+        ", ".join(improved_s5_scenarios) if improved_s5_scenarios else "none"
+    )
+    print(
+        f"{scenario:<12} "
+        f"({rb_returns[scenario_index]:.2f}%, {rb_footprints[scenario_index]:.2f}) "
+        f"{outcome_text:<34} "
+        f"{'yes' if improved_s5_scenarios else 'no':>10}"
+    )
+print("-" * 85)
+rb_beats_set_5 = all(rb_outcomes_improve)
+print(f"Does RB beat S5 in the set sense? {'Yes' if rb_beats_set_5 else 'No'}")
+print(
+    "RB wins the point-based comparison because its worst return is higher "
+    "(-1.61% in RECN/INFL versus -2.58% in RECN for S5) and its worst footprint "
+    "is lower (101.76 in BOOM versus 107.75 in BOOM for S5). "
+    "But RB does not beat S5 set-wise: RB improves S5 outcomes for BASE, SLOW, "
+    "and RECN, but not for BOOM or INFL."
+)
+
+"""
+Part E: Committee memo
+"""
+
+recommended_metrics = comparison_metrics["Mean-variance, lambda=0.05"]
+current_metrics = comparison_metrics["Current"]
+memo = f"""To: Meridian Investment Committee
+Subject: Recommended allocation
+
+Recommendation: adopt the mean-variance portfolio for lambda = 0.05: {mean_variance_005_weights[0] * 100:.2f}% GOVT, {mean_variance_005_weights[1] * 100:.2f}% CORP, {mean_variance_005_weights[2] * 100:.2f}% EQTY and {mean_variance_005_weights[3] * 100:.2f}% INFR.
+
+Metric (annual)                 Recommended       Current
+Expected return                 {recommended_metrics[0]:.2f}%             {current_metrics[0]:.2f}%
+Worst-case return              {recommended_metrics[2]:.2f}%            {current_metrics[2]:.2f}%
+Expected footprint             {recommended_metrics[3]:.2f}              {current_metrics[3]:.2f}
+Worst-case footprint           {recommended_metrics[4]:.2f}              {current_metrics[4]:.2f}
+
+Footprints are tCO2e per EUR 1 million invested. The recommendation gives up {current_metrics[0] - recommended_metrics[0]:.2f} percentage points of expected return while improving the worst-case return and reducing both expected and worst-case emissions.
+
+CIO: The expected return is marginally below the current portfolio, but the trade-off materially improves downside and emissions outcomes.
+Risk officer: The worst-case return improves from {current_metrics[2]:.2f}% to {recommended_metrics[2]:.2f}%; the max-min robust model offers a stronger guarantee ({robust_worst_return:.2f}%) if downside protection is the overriding objective.
+Head of sustainability: Expected and worst-case footprints fall from {current_metrics[3]:.2f} to {recommended_metrics[3]:.2f} and from {current_metrics[4]:.2f} to {recommended_metrics[4]:.2f}, respectively.
+
+I trust the robust max-min model most for stress protection because it does not rely on scenario probabilities and guarantees its bound within the stated uncertainty set; I recommend the lambda = 0.05 portfolio as the better overall committee compromise.
+"""
+memo_path = results_dir / "committee_memo.txt"
+memo_path.write_text(memo, encoding="utf-8")
+print(f"\nCommittee memo saved to: {memo_path}")
