@@ -7,14 +7,35 @@ states/actions, losses, probability distributions, or game-theoretic players as 
 Step 3. Choose a baseline. Begin with the simplest correct method. Examples include linear re-
 gression before a neural network, centralized training before federated learning, value iteration
 before Q-learning, or a weighted sum before NSGA-II.
+
 Step 4. Implement and validate. Test the method first on a small example where the expected
 behavior is known. When possible, compare numerical output with a closed-form solution.
+
 Step 5. Design experiments. Decide in advance which questions the experiments answer. Vary
 meaningful parameters and report appropriate metrics.
+
 Step 6. Analyze, do not only report. Explain why methods behave differently, what assumptions
 matter, and where the model fails.
+
 Step 7. Extend the baseline. Add at least one substantive extension: robustness, regularization,
 alternative objectives, heterogeneous data, uncertainty, another algorithm, sensitivity analy-
 sis, or a more realistic dataset.
+
 Step 8. Prepare the report and presentation. Present the mathematical formulation before
 computational results and connect conclusions explicitly to the course concepts.
+
+
+
+P5 — Multi-objective portfolio or engineering design (Multi-objective optimization)
+Choose a problem with two or three genuinely conflicting objectives, for example return/risk/sparsity,
+cost/emissions/reliability, or prediction accuracy/model complexity.
+Core tasks: define Pareto dominance, efficient solutions, and the criterion space; compute solu-
+tions with weighted-sum and ε-constraint scalarizations; visualize the Pareto front; explain sup-
+ported versus unsupported solutions where relevant. Extensions: goal programming, NSGA-II,
+robustness, or interactive preference selection. Difficulty: moderate
+
+
+Step1: 
+Get data from different energy sources for reliability,cost,C02 
++ upper caps (existing stuff)
+programm excercise
