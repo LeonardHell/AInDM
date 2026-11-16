@@ -39,3 +39,10 @@ Step1:
 Get data from different energy sources for reliability,cost,C02 
 + upper caps (existing stuff)
 programm excercise
+
+Refined: Data for Germany:
+- possible elecrticity sources
+- total costs 
+- current capacity in Germany
+- reliability
+- CO2 emission
