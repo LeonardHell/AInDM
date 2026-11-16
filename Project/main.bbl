@@ -1,0 +1,56 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.1 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nyt/global//global/global}
+    \entry{fraunhofer2024}{online}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=f9ec8b69b1e2077eba532858975701b9}{%
+           family={{Fraunhofer ISE}},
+           familyi={F\bibinitperiod}}}%
+      }
+      \strng{namehash}{f9ec8b69b1e2077eba532858975701b9}
+      \strng{fullhash}{f9ec8b69b1e2077eba532858975701b9}
+      \strng{bibnamehash}{f9ec8b69b1e2077eba532858975701b9}
+      \strng{authorbibnamehash}{f9ec8b69b1e2077eba532858975701b9}
+      \strng{authornamehash}{f9ec8b69b1e2077eba532858975701b9}
+      \strng{authorfullhash}{f9ec8b69b1e2077eba532858975701b9}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{year}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Levelized Cost of Electricity}
+      \field{urlday}{16}
+      \field{urlmonth}{11}
+      \field{urlyear}{2026}
+      \field{year}{2024}
+      \field{urldateera}{ce}
+      \verb{urlraw}
+      \verb https://www.ise.fraunhofer.de/
+      \endverb
+      \verb{url}
+      \verb https://www.ise.fraunhofer.de/
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+
