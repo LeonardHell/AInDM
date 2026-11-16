@@ -60,7 +60,7 @@ ax.set_ylabel('m')
 ax.set_zlabel('s^2')
 plt.legend()
 plt.show()
-print("The fund gives up ",(m(6)-m(4))*100/m(6),"percent expected profit and removes",((s(6)-s(4)))*100/s(6),"percent of variance for lambda = 0.02")
+print("The fund gives up ",(m(6)-m(4))*100/m(6),"percent expected profit and removes",((s2(6)-s2(4)))*100/s2(6),"percent of variance for lambda = 0.02")
 
 
 #B:route 2
@@ -174,4 +174,44 @@ E[x*]    4.5      1.5     0
 """)
 
 """
-Part D: robust models, no probabilities"""
+Part D: robust models, no probabilities
+"""
+#D.1
+print("D.1")
+print("""The min(x,w) = scenario S   for  x = 5,6
+                        scenario N   for  x = 1,2,3,4,5   
+                        scenario B   for  x = 0,1 """)
+
+x = np.linspace(0, 6, 100)
+def mini(x):
+    return np.minimum(np.minimum(Pi(x,"S"), Pi(x,"N")), Pi(x,"B"))
+minimum = mini(x)
+
+plt.plot(x, Pi(x,"S"), label="Slowdown")
+plt.plot(x, Pi(x,"N"), label="Normal")
+plt.plot(x, Pi(x,"B"), label="Boom")
+plt.plot(x, minimum, "k--", linewidth=3, label="Minimum (lower envelope)")
+
+plt.xlabel("x")
+plt.ylabel("Profit")
+plt.title("Three Profit Functions and Their Lower Envelope")
+plt.legend()
+plt.grid()
+plt.show()
+print("The lower envelope increases until x= 5, than decreases, so the optimal is x = 5, with a return of", round(Pi(5,"S")*100000,2),"Euros")
+print("""As an LP: max w s.t. w ≤ 70 − 8x,w ≤ 20 + 2x, w ≤ 10 + 12x""")
+
+#D.2
+print("D.2")
+print(f"""
+decision          x       worst       E[pi]
+-----------------------------------------------------
+Expect-value      6      {mini(6)}    {m(6)}
+mean-var (0.02)   4      {mini(4)}    {m(4)}
+robust            5      {mini(5)}    {m(5)}
+""")
+print(f"The robustness cost is {m(6)-m(5)}*100k of expected profit")
+print(f"It raises the lowest profit from {mini(6)}100k to {mini(5)}100k")
+
+#D.3
+print("D.3")
