@@ -1,0 +1,41 @@
+﻿Id;Day;Period;Indicator;"Zone name";"Zone code";"Gen type";Value;Unit
+94837789;2022-01-01;yearly;installed-capacity;Germany;DE;Coal;37374;MW
+94837790;2022-01-01;yearly;installed-capacity;Germany;DE;"Natural Gas";30553;MW
+94837792;2022-01-01;yearly;installed-capacity;Germany;DE;Bioenergy;9091.525;MW
+94837795;2022-01-01;yearly;installed-capacity;Germany;DE;Hydropower;10974;MW
+94837796;2022-01-01;yearly;installed-capacity;Germany;DE;"Nuclear Energy";4205;MW
+94837797;2022-01-01;yearly;installed-capacity;Germany;DE;Solar;67479;MW
+94837798;2022-01-01;yearly;installed-capacity;Germany;DE;"Wind Onshore";58014;MW
+94837799;2022-01-01;yearly;installed-capacity;Germany;DE;"Wind Offshore";8149;MW
+94837802;2022-01-01;yearly;installed-capacity;Germany;DE;"Other Renewables";403;MW
+94837803;2022-01-01;yearly;installed-capacity;Germany;DE;"Other Fossil Fuels";6484.475;MW
+113983946;2023-01-01;yearly;installed-capacity;Germany;DE;Coal;35819;MW
+113983947;2023-01-01;yearly;installed-capacity;Germany;DE;"Natural Gas";31808;MW
+113983949;2023-01-01;yearly;installed-capacity;Germany;DE;Bioenergy;9950;MW
+113983952;2023-01-01;yearly;installed-capacity;Germany;DE;Hydropower;11164;MW
+113983953;2023-01-01;yearly;installed-capacity;Germany;DE;"Nuclear Energy";4055;MW
+113983954;2023-01-01;yearly;installed-capacity;Germany;DE;Solar;81739;MW
+113983955;2023-01-01;yearly;installed-capacity;Germany;DE;"Wind Onshore";61052;MW
+113983956;2023-01-01;yearly;installed-capacity;Germany;DE;"Wind Offshore";8407;MW
+113983959;2023-01-01;yearly;installed-capacity;Germany;DE;"Other Renewables";50;MW
+113983960;2023-01-01;yearly;installed-capacity;Germany;DE;"Other Fossil Fuels";8049.8;MW
+113984516;2024-01-01;yearly;installed-capacity;Germany;DE;Coal;31329;MW
+113984517;2024-01-01;yearly;installed-capacity;Germany;DE;"Natural Gas";36255;MW
+113984519;2024-01-01;yearly;installed-capacity;Germany;DE;Bioenergy;9435.8;MW
+113984522;2024-01-01;yearly;installed-capacity;Germany;DE;Hydropower;11297;MW
+113984523;2024-01-01;yearly;installed-capacity;Germany;DE;"Nuclear Energy";-1;MW
+113984524;2024-01-01;yearly;installed-capacity;Germany;DE;Solar;95274;MW
+113984525;2024-01-01;yearly;installed-capacity;Germany;DE;"Wind Onshore";63303;MW
+113984526;2024-01-01;yearly;installed-capacity;Germany;DE;"Wind Offshore";8734;MW
+113984529;2024-01-01;yearly;installed-capacity;Germany;DE;"Other Renewables";410;MW
+113984530;2024-01-01;yearly;installed-capacity;Germany;DE;"Other Fossil Fuels";7954.2;MW
+151408827;2025-01-01;yearly;installed-capacity;Germany;DE;Coal;31127;MW
+151408828;2025-01-01;yearly;installed-capacity;Germany;DE;"Natural Gas";36613.56;MW
+151408830;2025-01-01;yearly;installed-capacity;Germany;DE;Bioenergy;9650.925;MW
+151408833;2025-01-01;yearly;installed-capacity;Germany;DE;Hydropower;11469.58;MW
+151408834;2025-01-01;yearly;installed-capacity;Germany;DE;"Nuclear Energy";-1;MW
+151408835;2025-01-01;yearly;installed-capacity;Germany;DE;Solar;105080.58;MW
+151408836;2025-01-01;yearly;installed-capacity;Germany;DE;"Wind Onshore";66654.17;MW
+151408837;2025-01-01;yearly;installed-capacity;Germany;DE;"Wind Offshore";9493;MW
+151408840;2025-01-01;yearly;installed-capacity;Germany;DE;"Other Renewables";445.67;MW
+151408841;2025-01-01;yearly;installed-capacity;Germany;DE;"Other Fossil Fuels";12085.425;MW

@@ -1,0 +1,6 @@
+﻿Id;Day;Period;Indicator;"Zone name";"Zone code";Value;Unit
+94442725;2022-01-01;yearly;load;Germany;DE;554142476;MWh
+107826265;2023-01-01;yearly;load;Germany;DE;520985369;MWh
+131239321;2024-01-01;yearly;load;Germany;DE;505988413.39027;MWh
+132387534;2025-01-01;yearly;load;Germany;DE;504940750.50569;MWh
+151271955;2026-01-01;yearly;load;Germany;DE;448383060.51939;MWh
