@@ -215,3 +215,28 @@ print(f"It raises the lowest profit from {mini(6)}100k to {mini(5)}100k")
 
 #D.3
 print("D.3")
+print("Worst CO2 emission (highest) is always Boom with e(x,B) = 10 + 5x")
+print("point based robust decisions are x= 0,1,2,3,4,5, as only x=6 is worse in C02 emission and profit than x=5")
+print("The epsilon constraint on the worst CO2 is 10 + 5x<= epsilon and therefore x<= (epsilon-10)/5")
+print(f"""
+epsilon     15     20     30     35     40
+---------------------------------------------
+x< =        1      2      4      5      6
+x* =        1      2      4      5      5
+profit     {Pi(1,"N")}      {Pi(2,"N")}     {Pi(4,"N")}     {Pi(5,"N")}     {Pi(5,"N")}
+""")
+
+x = np.linspace(0, 5, 6)
+plt.plot(5*x+10, mini(x), label="",linestyle="solid", color="black")
+plt.scatter(5*x+10, mini(x), color="orange", label=f"x={x.astype(int).tolist()}")
+plt.xlabel("worst CO2 emission")
+plt.ylabel("worst Profit")
+plt.title("Robust Pareto front for worst CO2 emission and worst profit")
+plt.legend()
+plt.grid()
+plt.show()
+
+#D.4
+print("D.4")
+FU = np.array([[mini(2), 10+2*2], [mini(4), 10+2*4], [mini(5), 10+2*5], [mini(6), 10+2*6]])
+print("The feasible set is", FU)
