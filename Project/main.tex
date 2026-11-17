@@ -2,7 +2,12 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{amsmath}
-
+\usepackage[
+    backend=biber,
+    style=authoryear,
+    sorting=nyt
+]{biblatex}
+\addbibresource{/references.bib}
 \title{Mein erstes LaTeX-Dokument}
 \author{Leonard Hell}
 \date{\today}
@@ -10,7 +15,25 @@
 \begin{document}
 
 \maketitle
-\section{Price of Electricity}
+\section{Introduction}
+\section{Data collection}
+\subsection{Price of Electricity}
 The electricity price is determined daily for the upcoming day by the price of the highest (last) source needed to fulfill the demand.
-
+\subsection{Energy consumption}
+For the expected energy consumtion we could find predictions for three scenarios.
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        & Scenario A & Scenario B & Scenario C \\
+        \hline
+        2037 & 899&961&1053 \\
+        2045 &1079&1106&1303 \\
+        \hline
+    \end{tabular}
+    \caption{Expected energy consumption in the years 2037 and 2045 for three different scenarios.\cite{fraunhofer2024}}
+    \label{tab:energy}
+\end{table}
+\newpage
+\printbibliography[title={References}]
 \end{document}
