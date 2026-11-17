@@ -61,8 +61,7 @@ def group_stage(groups):
 
     for group in groups:
 
-        #points = {player: 0 for player in group}
-        points = [0] * len(group)
+        points = {player: 0 for player in group}
         # Everyone plays everyone
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
@@ -73,11 +72,11 @@ def group_stage(groups):
         # Rank by points, then randomize ties
         ranking = sorted(
             group,
-            key=lambda p: (points[p], rng.random()),
-            reverse=True
+            key=lambda player: (points[player], rng.random()),
+            reverse=True,
         )
 
-        qualified.append(ranking[:2])
+        qualified.extend(ranking[:2])
 
     return qualified
 
@@ -88,7 +87,7 @@ def knockout_stage(qualified):
 
     players = sorted(
         qualified,
-        key=lambda p: -skills[p]
+        key=lambda player: -skills[player],
     )
 
     while len(players) > 1:
@@ -109,22 +108,18 @@ def knockout_stage(qualified):
 def simulate_tournament(x):
     num_groups = 2 ** (x - 1)
     groups = create_groups(num_groups)
-    print(groups)
     qualified = group_stage(groups)
 
     winner = knockout_stage(qualified)
 
     return winner
 
-print(simulate_tournament(2))
 # -----------------------------
 # MONTE CARLO EXPERIMENT
 # -----------------------------
 max_x = int(np.log2(n))
 def Monte_Carlo(x,simulations = 100000):
     player_wins = [0]*n
-    print("a")
-    print(simulate_tournament(x))
     for _ in range(simulations):
         
         player_wins[simulate_tournament(x)]+=1
@@ -132,33 +127,5 @@ def Monte_Carlo(x,simulations = 100000):
 
     probabilities = [x/simulations for x in player_wins]
     return(probabilities)
+
 print(Monte_Carlo(2))
-
-# -----------------------------
-# 8. OPTIMAL NUMBER OF ROUNDS
-# -----------------------------
-
-best_x = x_values[np.argmax(probabilities)]
-
-print("\nOptimal number of knockout rounds:", best_x)
-
-
-# -----------------------------
-# 9. VISUALIZATION
-# -----------------------------
-
-plt.figure(figsize=(8, 5))
-
-plt.plot(
-    x_values,
-    probabilities,
-    marker="o"
-)
-
-plt.xlabel("Number of knockout rounds (x)")
-plt.ylabel("Probability strongest player wins")
-plt.title("Monte Carlo Tournament Optimization")
-
-plt.xticks(x_values)
-plt.grid(True)
-plt.show()
