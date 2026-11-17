@@ -118,14 +118,27 @@ def simulate_tournament(x):
 # MONTE CARLO EXPERIMENT
 # -----------------------------
 max_x = int(np.log2(n))
-def Monte_Carlo(x,simulations = 100000):
+def Monte_Carlo(x,simulations = 100_000):
+    
     player_wins = [0]*n
     for _ in range(simulations):
-        
-        player_wins[simulate_tournament(x)]+=1
-
+        if x==int(np.log2(n)):
+            winner = knockout_stage(list(range(0, n)))
+        elif x==0:
+            num_groups = 1
+            groups = create_groups(num_groups)
+            qualified = group_stage(groups)
+            winner = qualified[0]
+        else:
+            winner = simulate_tournament(x)
+            
+        player_wins[winner]+=1
 
     probabilities = [x/simulations for x in player_wins]
     return(probabilities)
 
-print(Monte_Carlo(2))
+x_prob = {}
+for x in range(int(np.log2(n))):    
+    x_prob[x] = Monte_Carlo(x)
+
+print(x_prob)
