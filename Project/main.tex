@@ -8,8 +8,8 @@
     sorting=nyt
 ]{biblatex}
 \addbibresource{/references.bib}
-\title{Mein erstes LaTeX-Dokument}
-\author{Leonard Hell}
+\title{Energy source optimization (Project 5)}
+\author{Leonard Hell and Klara Resch}
 \date{\today}
 
 \begin{document}
@@ -19,6 +19,20 @@
 \section{Data collection}
 \subsection{Price of Electricity}
 The electricity price is determined daily for the upcoming day by the price of the highest (last) source needed to fulfill the demand.
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|c|c|c|c}
+        \hline
+        & Lignite & Hard Coal & Natural Gas & Green Hydrogen & Uranium & Substrate Biogas & Substrate Solid Biomass \\
+        \hline
+        2035 & 2.3 & 11.6 & 27.0 & 129 & 8.0 & 103.3 & 26.4\\
+        2045 & 2.3 & 11.6 & 27.0 & 100 & 8.0 & 110.2 & 28.2\\
+        \hline
+    \end{tabular}
+    \caption{Expected energy prices in the years 2035 and 2045.\cite{fraunhofer2024}}
+    \label{tab:energy}
+\end{table}
+
 \subsection{Energy consumption}
 For the expected energy consumtion we could find predictions for three scenarios.
 \begin{table}[h]
