@@ -1,18 +1,65 @@
 import math
 import numpy as np
-def Probabilities(x):
-    x_prob={0: [0.26739, 0.16177, 0.1263, 0.11544, 0.11503, 0.08725, 0.08574, 0.01772, 0.00953, 0.00595, 0.00455, 0.00172, 0.00158, 3e-05, 0.0, 0.0], 1: [0.26541, 0.16468, 0.12611, 0.11649, 0.11551, 0.08817, 0.08611, 0.01688, 0.00807, 0.00542, 0.00407, 0.00189, 0.00118, 1e-05, 0.0, 0.0], 2: [0.21573, 0.14274, 0.12023, 0.11731, 0.11793, 0.09895, 0.0999, 0.03141, 0.01881, 0.0139, 0.01104, 0.00631, 0.00551, 0.00016, 7e-05, 0.0], 3: [0.18756, 0.12331, 0.10714, 0.0966, 0.10544, 0.10331, 0.11615, 0.05104, 0.03588, 0.02652, 0.02196, 0.01278, 0.01087, 0.00088, 0.00055, 1e-05]}
-    return x_prob[x]
+import json
+GROUP_MODES = ("snake", "random", "best_vs_best")
+KNOCKOUT_MODES = ("best_vs_best", "random", "best_vs_worst")
 
-def ProbStrongest(x):
-    return Probabilities(x)[0]
+def LoadData():
+    """ Load data from simulation """
+    
+    with open("Project_2/tournament_results.txt", "r") as file:
+        data = json.load(file)
+    return data
+data = LoadData() #results,(n), x , Gr-mode, QperG, KO-mode, probabilities
 
-def NumberofGames(x,n=16):
+def Probabilities(x,Grmode,KOmode, QperG = 2):
+    x_prob = data["results"][str(x)][Grmode][str(QperG)][KOmode]
+    return x_prob
+
+def ProbStrongest(x,Grmode,KOmode, QperG = 2):
+    return Probabilities(x,Grmode,KOmode, QperG = 2)[0]
+
+def NumberofGames(x,n=16,QperG = 2):
     sum=0
     for i in range(x):
         sum+=2**i
     return sum+math.factorial(n/2**(x-2))
 
-def Predictability(x):
-    distribution = Probabilities(x)
+def Predictability(x,Grmode,KOmode, QperG = 2):
+    distribution = Probabilities(x,Grmode,KOmode, QperG = 2)
     return np.var(distribution)
+
+import matplotlib.pyplot as plt
+
+# Data
+x = np.array([1,2,3,4])
+y1a = [ProbStrongest(i, "snake", "best_vs_best") for i in x]
+y1b = [ProbStrongest(i, "random", "best_vs_best") for i in x]
+y1c = [ProbStrongest(i, "best_vs_best", "best_vs_best") for i in x]
+y2a = [ProbStrongest(i, "snake", "random") for i in x]
+y2b = [ProbStrongest(i, "random", "random") for i in x]
+y2c = [ProbStrongest(i, "best_vs_best", "random") for i in x]
+y3a = [ProbStrongest(i, "snake", "best_vs_worst") for i in x]
+y3b = [ProbStrongest(i, "random", "best_vs_worst") for i in x]
+y3c = [ProbStrongest(i, "best_vs_best", "best_vs_worst") for i in x]
+
+#print(y2)
+
+# Create plot
+plt.plot(x, y1a, label="best vs best",linestyle="--",color = "blue")
+plt.plot(x, y1b, label="best vs best",linestyle="-",color = "blue")
+plt.plot(x, y1c, label="best vs best",linestyle="-.",color = "blue")
+plt.plot(x, y2a,label = "random",linestyle="--",color = "green")
+plt.plot(x, y2b,label = "random",linestyle="-",color = "green")
+plt.plot(x, y2c,label = "random",linestyle="-.",color = "green")
+plt.plot(x, y3a, label = "best_vs_worst",linestyle="--",color = "red")
+plt.plot(x, y3b, label = "best_vs_worst",linestyle="-",color = "red")
+plt.plot(x, y3c, label = "best_vs_worst",linestyle="-.",color = "red")
+
+# Add labels and title
+plt.xlabel("X values")
+plt.ylabel("Strongest wins prob")
+plt.title("Group phase snake")
+plt.legend()
+# Display plot
+plt.show()
