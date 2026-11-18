@@ -5,7 +5,7 @@ import numpy as np
 
 seed = 47
 np.random.seed(seed)
-n = 16
+PLAYER_COUNTS = (4, 8, 16, 32, 64, 128)
 
 
 def init_players(n, dist) -> list:
@@ -17,7 +17,6 @@ def init_players(n, dist) -> list:
     raise ValueError(f"Unknown player skill distribution: {dist}")
 
 
-skills = init_players(n, "uniform")
 rng = np.random.default_rng(42)
 
 GROUP_MODES = ("snake", "random", "best_vs_best")
@@ -26,7 +25,7 @@ SIMULATIONS_PER_CONFIGURATION = 100_000
 ANALYSIS_SIMULATIONS = 100_000
 
 
-def play_match(player1, player2):
+def play_match(player1, player2, skills):
     """Return the winner of a match using Bradley-Terry."""
     s1 = skills[player1]
     s2 = skills[player2]
@@ -37,8 +36,9 @@ def play_match(player1, player2):
     return player2
 
 
-def create_groups(num_groups, mode="snake"):
+def create_groups(num_groups, skills, mode="snake"):
     """Distribute players into groups using the selected seeding mode."""
+    n = len(skills)
     if mode not in GROUP_MODES:
         raise ValueError(f"Unknown group formation mode: {mode}")
     if not 1 <= num_groups <= n:
@@ -64,7 +64,7 @@ def create_groups(num_groups, mode="snake"):
     return groups
 
 
-def group_stage(groups, qualifiers_per_group):
+def group_stage(groups, qualifiers_per_group, skills):
     """Play each group round-robin and return each group's qualifiers."""
     qualified = []
 
@@ -75,7 +75,7 @@ def group_stage(groups, qualifiers_per_group):
         points = {player: 0 for player in group}
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
-                winner = play_match(group[i], group[j])
+                winner = play_match(group[i], group[j], skills)
                 points[winner] += 1
 
         ranking = sorted(
@@ -88,7 +88,7 @@ def group_stage(groups, qualifiers_per_group):
     return qualified
 
 
-def knockout_stage(qualified, mode="best_vs_best"):
+def knockout_stage(qualified, skills, mode="best_vs_best"):
     """Play knockout rounds with the selected pairing mode."""
     if mode not in KNOCKOUT_MODES:
         raise ValueError(f"Unknown knockout pairing mode: {mode}")
@@ -113,18 +113,25 @@ def knockout_stage(qualified, mode="best_vs_best"):
                     for i in range(len(players) // 2)
                 ]
 
-        players = [play_match(player1, player2) for player1, player2 in pairs]
+        players = [
+            play_match(player1, player2, skills)
+            for player1, player2 in pairs
+        ]
 
     return players[0]
 
 
 def simulate_tournament(
     x,
+    skills,
     group_mode="snake",
     qualifiers_per_group=None,
     knockout_mode="best_vs_best",
 ):
     """Simulate a tournament with 2**x players entering the knockout stage."""
+    n = len(skills)
+    if n < 1 or n & (n - 1):
+        raise ValueError("The number of players must be a positive power of two.")
     if not 0 <= x <= int(np.log2(n)):
         raise ValueError(f"x must be between 0 and {int(np.log2(n))}.")
 
@@ -141,26 +148,31 @@ def simulate_tournament(
         )
 
     num_groups = knockout_players // qualifiers_per_group
-    groups = create_groups(num_groups, group_mode)
-    qualified = group_stage(groups, qualifiers_per_group)
-    return knockout_stage(qualified, knockout_mode)
+    groups = create_groups(num_groups, skills, group_mode)
+    qualified = group_stage(groups, qualifiers_per_group, skills)
+    return knockout_stage(qualified, skills, knockout_mode)
 
 
 def Monte_Carlo(
     x,
+    n,
     simulations=SIMULATIONS_PER_CONFIGURATION,
     group_mode="snake",
     qualifiers_per_group=None,
     knockout_mode="best_vs_best",
 ):
     """Estimate each player's probability of winning this tournament setup."""
+    if n < 1 or n & (n - 1):
+        raise ValueError("n must be a positive power of two.")
     if simulations < 1:
         raise ValueError("simulations must be at least 1.")
 
     player_wins = [0] * n
     for _ in range(simulations):
+        skills = init_players(n, "uniform")
         winner = simulate_tournament(
             x,
+            skills,
             group_mode=group_mode,
             qualifiers_per_group=qualifiers_per_group,
             knockout_mode=knockout_mode,
@@ -170,41 +182,51 @@ def Monte_Carlo(
     return [wins / simulations for wins in player_wins]
 
 
-def run_analysis(simulations=ANALYSIS_SIMULATIONS):
+def run_analysis(simulations=ANALYSIS_SIMULATIONS, list_of_n=None):
     """Evaluate every valid combination of tournament settings."""
-    max_x = int(np.log2(n))
+    if list_of_n is None:
+        list_of_n = PLAYER_COUNTS
+    else:
+        list_of_n = tuple(list_of_n)
+
     results = {}
+    for n in list_of_n:
+        if n < 1 or n & (n - 1):
+            raise ValueError("Every player count must be a positive power of two.")
+        results[str(n)] = {}
+        max_x = int(np.log2(n))
 
-    for x in range(max_x + 1):
-        results[str(x)] = {}
-        qualifier_counts = [
-            2**power for power in range(x + 1)
-        ]
+        for x in range(max_x + 1):
+            results[str(n)][str(x)] = {}
+            qualifier_counts = [
+                2**power for power in range(x + 1)
+            ]
 
-        for group_mode in GROUP_MODES:
-            results[str(x)][group_mode] = {}
-            for qualifiers_per_group in qualifier_counts:
-                results[str(x)][group_mode][str(qualifiers_per_group)] = {}
-                for knockout_mode in KNOCKOUT_MODES:
-                    probabilities = Monte_Carlo(
-                        x,
-                        simulations=simulations,
-                        group_mode=group_mode,
-                        qualifiers_per_group=qualifiers_per_group,
-                        knockout_mode=knockout_mode,
-                    )
-                    results[str(x)][group_mode][str(qualifiers_per_group)][
-                        knockout_mode
-                    ] = probabilities
+            for group_mode in GROUP_MODES:
+                results[str(n)][str(x)][group_mode] = {}
+                for qualifiers_per_group in qualifier_counts:
+                    results[str(n)][str(x)][group_mode][str(qualifiers_per_group)] = {}
+                    for knockout_mode in KNOCKOUT_MODES:
+                        probabilities = Monte_Carlo(
+                            x,
+                            n=n,
+                            simulations=simulations,
+                            group_mode=group_mode,
+                            qualifiers_per_group=qualifiers_per_group,
+                            knockout_mode=knockout_mode,
+                        )
+                        results[str(n)][str(x)][group_mode][str(qualifiers_per_group)][
+                            knockout_mode
+                        ] = probabilities
 
     return {
         "metadata": {
-            "players": n,
+            "player_counts": list(list_of_n),
+            "player_index": "skill rank; index 0 is the strongest",
             "simulations_per_configuration": simulations,
             "group_modes": list(GROUP_MODES),
             "qualifiers_per_group": "all powers of two up to 2**x",
             "knockout_modes": list(KNOCKOUT_MODES),
-            "player_skill_by_id": skills,
         },
         "results": results,
     }
