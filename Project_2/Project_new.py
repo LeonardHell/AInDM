@@ -25,7 +25,7 @@ def NumberofGames(x,n=16,QperG = 2):
     sum=0
     for i in range(x):
         sum+=2**i
-    return sum+math.factorial(int(n/2**(x-2)))
+    return sum+math.factorial(int(n/2**x*QperG))
 
 def Predictability(probs):
     distribution = probs
@@ -52,7 +52,7 @@ def Pareto_dom (n,para_results):
                     QperG = 2**(i)
                     for KOmode in KNOCKOUT_MODES:
                         test_para = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
-                        if test_para["num_games"]< para_results["num_games"] and test_para["strongest_prob"]>para_results["strongest_prob"] and test_para["predictability"]<para_results["predictability"]:
+                        if test_para["num_games"]< para_results["num_games"] and np.round(test_para["strongest_prob"],4)>np.round(para_results["strongest_prob"],4) and np.round(test_para["predictability"],4)<np.round(para_results["predictability"],4):
                             # So if test_para dominates param_results for all three goals
                             return False
     #No dominant parameter set found
@@ -78,6 +78,7 @@ def Pareto_Front (n):
                     if Pareto_front[str(x)]=={}:
                         del Pareto_front[str(x)]
     return Pareto_front,Pareto_front_parameters
+print(Pareto_Front(4)[0]["0"])
 
 def Plotdata(function):
     x = np.array([1,2,3,4])
