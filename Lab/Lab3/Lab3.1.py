@@ -238,5 +238,56 @@ plt.show()
 
 #D.4
 print("D.4")
-FU = np.array([[mini(2), 10+2*2], [mini(4), 10+2*4], [mini(5), 10+2*5], [mini(6), 10+2*6]])
-print("The feasible set is", FU)
+
+print(f""" F_U sets as (return,C02 emission) for different x
+x       2        4        5        6
+-------------------------------------------
+S     ({Pi(2,"S")},{e(2,"S")})  ({Pi(4,"S")},{e(4,"S")})  ({Pi(5,"S")},{e(5,"S")})  ({Pi(6,"S")},{e(6,"S")})
+N     ({Pi(2,"N")},{e(2,"N")})  ({Pi(4,"N")},{e(4,"N")})  ({Pi(5,"N")},{e(5,"N")})  ({Pi(6,"N")},{e(6,"N")})
+B     ({Pi(2,"B")},{e(2,"B")})  ({Pi(4,"B")},{e(4,"B")})  ({Pi(5,"B")},{e(5,"B")})  ({Pi(6,"B")},{e(6,"B")})
+""")
+
+print("x=4 does not beat x=6 as the point (28,22) and (58,30) aren't better than any points of x=6")
+print("x=2 does beat x=6 as the points (54,12) and (24,16) of x=2 are better than (22,16); and the point (34,20) of x=2  is better than the point (32,28) of x=6")
+
+#D.5
+print("D.5")
+# Lambda = (1,0): Maximize worst-case profit
+# Intersection: 20 + 2x = 70 - 8x
+x1 = 5
+
+# Lambda = (2,1): Maximize worst-case (2*profit - CO2)
+# Intersection: 30 + x = 130 - 17x
+x2 = 100 / 18
+
+# Lambda = (1,3): Maximize worst-case (profit - 3*CO2)
+# Worst-case is -20 - 3x, maximum at x = 0
+x3 = 0
+
+print("Lambda (1,0): x =", x1,"with worst case is ",70-8*x1)
+print("Lambda (2,1): x =", x2, "with worst case is",130-17*x2)
+print("Lambda (1,3): x =", x3, "with worst case is -20")
+
+# Check the three scores for Lambda (2,1)
+print("Scores for Lambda (2,1):")
+print("Slowdown:", 130 - 17*x2)
+print("Normal:", 30 + x2)
+print("Boom:", 10 + 19*x2)
+print("Point-based efficient solutions:")
+print("x =", x3, "and x =", x1)
+
+#D.6
+print("D.6")
+print("""Robust efficient decision sets:
+highly robust     {0}
+point-based       [0,5]
+set-based         [0,75/13] ~= [0,5.77]""")
+
+print("x=6 is beaten point-based and set-based")
+
+#Part E: recommendation
+print("Part E: recommendation")
+print("Recommend x=5: expected profit is 40 (about €4 million), worst profit is 30 (about €3 million), expected CO2 is 25, and worst CO2 is 35.")
+print("CIO: This retains most of the expected profit while avoiding the lower worst-case return at x=6.")
+print("Risk officer: The worst-case profit is 30, the maximum achievable across decisions.")
+print("Head of sustainability: Worst-case CO2 is 35, five units below the x=6 equity cap outcome.")
