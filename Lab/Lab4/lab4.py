@@ -638,6 +638,99 @@ def predict_new_cases(new_df, model_artifact):
     )
 
 
+def predict_example_case(model_artifact):
+    """Compare the supplied invented case with one plausible feature change."""
+    example_case = {
+        "person_age": 35,
+        "person_income": 60_000,
+        "person_home_ownership": "RENT",
+        "person_emp_length": 7,
+        "loan_intent": "EDUCATION",
+        "loan_grade": "B",
+        "loan_amnt": 12_000,
+        "loan_int_rate": 11,
+        "loan_percent_income": 0.20,
+        "cb_person_default_on_file": "N",
+        "cb_person_cred_hist_length": 10,
+    }
+    changed_case = {
+        **example_case,
+        "cb_person_default_on_file": "Y",
+    }
+    cases = pd.DataFrame(
+        [example_case, changed_case],
+        index=["provided_case", "historical_default_changed_to_Y"],
+    )
+    predictions = predict_new_cases(cases, model_artifact)
+    predictions.insert(
+        0,
+        "changed_input",
+        ["none", "cb_person_default_on_file: N -> Y"],
+    )
+    predictions["model"] = model_artifact["selection"]["model"]
+    predictions["threshold"] = model_artifact["threshold"]
+    return predictions
+
+
+def print_comparison_interpretation(validation_results, test_results):
+    """Print the requested interpretation of validation and test metrics."""
+    selected_name = select_by_validation_auc(validation_results)
+    validation_winner = validation_results.loc[selected_name]
+    best_recall = validation_results["recall_default"].idxmax()
+    best_f1 = validation_results["f1_default"].idxmax()
+    test_selected = test_results.loc[selected_name]
+    test_baseline = test_results.loc["majority"]
+
+    print("\nInterpretation:")
+    print(
+        f"- Validation ROC-AUC selected {selected_name}; it "
+        f"{'also' if best_recall == selected_name else 'did not'} had the highest "
+        f"default recall ({best_recall}) and "
+        f"{'also' if best_f1 == selected_name else 'did not'} had the highest "
+        f"default F1 ({best_f1})."
+    )
+    print(
+        "- On test, compared with the majority baseline, accuracy changed by "
+        f"{100 * (test_selected['accuracy'] - test_baseline['accuracy']):+.2f} "
+        "percentage points, balanced accuracy by "
+        f"{100 * (test_selected['balanced_accuracy'] - test_baseline['balanced_accuracy']):+.2f} "
+        "points, and ROC-AUC by "
+        f"{test_selected['roc_auc'] - test_baseline['roc_auc']:+.3f}."
+    )
+    print(
+        f"- Test errors: the selected model has {int(test_selected['FP'])} false "
+        f"positives and {int(test_selected['FN'])} false negatives; the baseline "
+        f"has {int(test_baseline['FP'])} false positives and "
+        f"{int(test_baseline['FN'])} false negatives. False positives are "
+        "non-defaults flagged as defaults; false negatives are missed defaults."
+    )
+    print(
+        "- Accuracy can be high despite poor default recall because non-defaults "
+        "are the majority: the test majority baseline gets "
+        f"{test_baseline['accuracy']:.1%} accuracy while detecting no defaults."
+    )
+    print(
+        f"- Test ROC-AUC ({test_selected['roc_auc']:.4f}) "
+        f"{'supports' if test_selected['roc_auc'] >= validation_winner['roc_auc'] else 'does not numerically exceed'} "
+        f"the validation AUC ({validation_winner['roc_auc']:.4f}); test default "
+        f"recall is {test_selected['recall_default']:.4f} versus validation "
+        f"{validation_winner['recall_default']:.4f}. This is one held-out sample, "
+        "not proof of future-period performance."
+    )
+    print(
+        "- Grade and interest rate should only be used at a prediction point "
+        "where they are already known. If assigned after or during the lending "
+        "decision, they can make this model unsuitable for earlier screening "
+        "and may leak decision-time information."
+    )
+    print(
+        "- If the dataset is simulated, performance reflects its simulator. "
+        "Flagged implausible ages/employment lengths and limited source "
+        "provenance weaken generalization claims; flagged records were retained. "
+        "There is no borrower ID to verify independence across profiles."
+    )
+
+
 if __name__ == "__main__":
     df = load_and_summarize_data()
     split_frames = apply_saved_split(df)
@@ -681,6 +774,7 @@ if __name__ == "__main__":
             f" [{row['FN']}, {row['TP']}]]"
         )
     test_results.to_csv(OUTPUT_DIRECTORY / "test_comparison.csv")
+    print_comparison_interpretation(validation_results, test_results)
     _plot_roc_curves(
         split_frames["test"][TARGET],
         test_probabilities,
@@ -702,4 +796,12 @@ if __name__ == "__main__":
     print(
         "\nAfter the one-time test evaluation, the frozen configuration was refit "
         "on all labelled rows for new-case prediction."
+    )
+    example_predictions = predict_example_case(final_model)
+    example_predictions.to_csv(OUTPUT_DIRECTORY / "new_case_prediction.csv")
+    print("\nInvented new-case predictions (outcome unknown):")
+    print(example_predictions.to_string())
+    print(
+        "These model probabilities are estimates, not calibrated certainty; "
+        "calibration was not separately evaluated."
     )

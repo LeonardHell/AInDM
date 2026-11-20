@@ -1,0 +1,330 @@
+CREDIT RISK CLASSIFICATION
+Lab 4 report
+
+Team members: Leonard Hell and Klara Resch
+
+======================================================================
+1. PROBLEM AND OBJECTIVE
+======================================================================
+
+This analysis compares five supervised-learning candidates for predicting
+whether a loan record is in the default class. The target is loan_status,
+coded 0 for non-default and 1 for default. The practical task is a
+binary classification problem, but the comparison also evaluates the
+models' predicted probabilities: these are used for ROC-AUC and Brier
+score and are distinct from the final class prediction at a chosen
+threshold.
+
+The five candidates are a majority-class baseline, logistic regression,
+a shallow decision tree, a random forest, and k-nearest neighbours
+(kNN). Selection is based only on validation ROC-AUC. The selected
+configuration is then frozen, refit on training plus validation, and
+evaluated on the test set. The test set is not used to select a model or
+adjust its threshold. After this one-time evaluation, the same selected
+configuration is refit on all labelled rows and saved for future
+new-case predictions.
+
+This is a held-out comparison under a row-level sampling assumption. It
+does not establish performance in future calendar periods. The data
+contains no borrower identifier, so it is not possible to verify that
+different predictor profiles belong to independent borrowers.
+
+======================================================================
+2. DATA AND DEFINED FEATURES
+======================================================================
+
+The input file is credit_risk_dataset.csv. It contains 32,581 records
+and 12 columns. The target labels are present for all rows, and their
+values are exactly 0 and 1.
+
+The 11 predictors and the target are:
+
+Feature                         Meaning and working units
+------------------------------  --------------------------------------
+person_age                      Borrower age, in years
+person_income                   Annual income, dataset monetary units
+person_home_ownership           MORTGAGE, OTHER, OWN, or RENT
+person_emp_length               Employment length, in years
+loan_intent                     Loan purpose/category
+loan_grade                      Assigned grade, A through G
+loan_amnt                       Loan amount, dataset monetary units
+loan_int_rate                   Interest rate; 11 represents 11%
+loan_status                     Target: 0 non-default, 1 default
+loan_percent_income             Loan/income proportion; 0.20 is 20%
+cb_person_default_on_file       Historical default indicator, Y or N
+cb_person_cred_hist_length       Credit-history length, in years
+
+The loan_intent categories in the dataset are DEBTCONSOLIDATION,
+EDUCATION, HOMEIMPROVEMENT, MEDICAL, PERSONAL, and VENTURE. The target
+is excluded from the model inputs. No separate borrower ID or calendar
+date is present in the described columns.
+
+Exact duplicate rows were removed before splitting. There were 165 such
+rows, leaving 32,416 records. The deduplicated class counts are:
+
+Target class                     Count             Share
+------------------------------  ----------------  --------
+0 - non-default                  25,327            78.13%
+1 - default                       7,089            21.87%
+Total                             32,416           100.00%
+
+The class imbalance matters when interpreting accuracy: correctly
+classifying the more common non-default class can produce a high
+accuracy while many defaults are missed.
+
+======================================================================
+3. DATA QUALITY AND PREPROCESSING
+======================================================================
+
+Missingness was inspected after exact duplicate removal. There are no
+missing target labels, so no target value was guessed or imputed.
+Missing predictor values are handled within the preprocessing fitted
+for each model, using training data only.
+
+Feature                         Missing rows after deduplication
+------------------------------  -------------------------------
+person_age                      0
+person_income                   0
+person_home_ownership           0
+person_emp_length               887 (2.74%)
+loan_intent                     0
+loan_grade                      0
+loan_amnt                       0
+loan_int_rate                   3,095 (9.55%)
+loan_status                     0
+loan_percent_income             0
+cb_person_default_on_file       0
+cb_person_cred_hist_length       0
+
+The numeric features remain numeric. The four category features remain
+categorical until imputation and one-hot encoding. Missing numeric values
+are replaced by the corresponding training-set median. Missing category
+values receive an explicit MISSING category. One-hot categories are
+learned from training rows; previously unseen categories at transform
+time are ignored by the encoder. Validation and test rows are transformed
+with the fitted training preprocessor; they are not used to learn
+medians, category levels, or scaling statistics.
+
+Logistic regression and kNN use standardized numeric columns, with mean
+and standard deviation estimated from training data. A constant numeric
+feature uses scale 1. Decision tree, random forest, and the majority
+baseline use the same median imputation and one-hot encoding but do not
+scale numeric features. The baseline uses the training class prior to
+produce a constant default probability and predicts the majority class
+at threshold 0.5.
+
+The starter data audit flagged unusual values without silently deleting
+them. Five deduplicated records have ages above 100 (ages 123 or 144).
+Two records have employment length 123 years, greater than age minus 14.
+These seven rows were retained. Such values may be errors or unusual
+records, but they should not be corrected or removed without a
+documented data-quality decision.
+
+The split is seeded with 42 and uses stratified grouped folds. Rows with
+identical predictor profiles are assigned as a group, including in the
+case of conflicting target labels; labels are not part of the predictor
+profile. The five folds are allocated as three training folds, one
+validation fold, and one test fold. This produces approximately 60/20/20
+partitions:
+
+Partition      Rows       Class 0       Class 1       Default share
+-------------  ---------  ------------  ------------  -------------
+Training       19,449     15,166         4,283          22.02%
+Validation      6,484      5,067         1,417          21.85%
+Test            6,483      5,094         1,389          21.43%
+
+Assignments are saved in split_assignments.csv and reused. The file
+records the source row, predictor-profile fingerprint, target, and
+partition. On reuse, the script checks that the current rows, profiles,
+and target labels still match the saved assignment. After exact
+deduplication, this dataset has no duplicate predictor profiles and no
+conflicting-profile groups; the grouped procedure nevertheless protects
+against profile overlap if those occur in another version of the data.
+
+======================================================================
+4. CANDIDATE MODELS AND METRICS
+======================================================================
+
+The comparison uses these fixed starter settings:
+
+Candidate              Model and settings
+---------------------  -----------------------------------------------
+Majority baseline      Predict training majority; constant prior
+                       probability
+Logistic regression    L2 penalty; C = 1; maximum 2,000 iterations
+Decision tree          Maximum depth 5; minimum 20 samples per leaf
+Random forest          100 trees; maximum depth 10; minimum 5 samples
+                       per leaf
+k-nearest neighbours   k = 15; Euclidean distance
+
+All candidates are fitted on training data and compared on validation.
+The selection rule is the maximum validation ROC-AUC. Exact ties use
+the fixed candidate order: majority, logistic regression, decision
+tree, random forest, then kNN. No test score is used for selection. The
+classification threshold is frozen at 0.5.
+
+ROC-AUC measures the ability to rank default records above non-default
+records across possible thresholds; a constant score has AUC 0.5 when
+both classes are present. It does not by itself specify the operational
+threshold or guarantee calibrated probabilities. Precision is
+TP/(TP+FP), recall is TP/(TP+FN), and F1 is
+2TP/(2TP+FP+FN), where default (1) is the positive class. The
+implementation reports zero when a precision, recall, or F1 denominator
+is zero. Balanced accuracy is the average of class-specific recall.
+Confusion matrices use rows for actual class [0, 1] and columns for
+predicted class [0, 1]. Thus the cells are [[TN, FP], [FN, TP]].
+
+======================================================================
+5. VALIDATION COMPARISON AND MODEL SELECTION
+======================================================================
+
+Validation results at threshold 0.5:
+
+Candidate              Accuracy  Balanced  Precision  Recall   F1       ROC-AUC
+---------------------  --------  --------  ---------  -------  -------  -------
+Majority baseline       0.7815    0.5000     0.0000    0.0000   0.0000   0.5000
+Logistic regression     0.8587    0.7444     0.7425    0.5413   0.6261   0.8563
+Decision tree           0.9004    0.7792     0.9661    0.5639   0.7121   0.8648
+Random forest            0.9246    0.8397     0.9531    0.6888   0.7997   0.9066
+k-nearest neighbours    0.8897    0.7744     0.8849    0.5695   0.6930   0.8694
+
+The random forest has the largest validation AUC (0.9066), so it is the
+selected candidate. It also has the highest validation default recall
+(0.6888) and F1 (0.7997) among these candidates at the fixed 0.5
+threshold. The decision tree has the highest validation default
+precision (0.9661), but its recall is lower (0.5639). This illustrates
+the trade-off between missing defaults and raising false alarms.
+
+High accuracy can coexist with poor default recall because non-defaults
+are the majority. The validation majority baseline achieves 78.15%
+accuracy by predicting non-default for every case, but its default
+recall is zero. Accuracy alone would make this baseline appear
+reasonable even though it fails to identify any default cases. Balanced
+accuracy and the default-class metrics make that failure visible.
+
+The model was frozen with random forest settings of 100 trees, maximum
+depth 10, minimum leaf size 5, and random state 42. Inputs are the 11
+listed predictors, preprocessing is the tree/forest variant described
+above, and the class threshold is 0.5.
+
+======================================================================
+6. FINAL TEST EVALUATION
+======================================================================
+
+After freezing the validation winner and its settings, that model was
+refit on the union of training and validation rows. The majority
+baseline was also fit on training plus validation. Both were evaluated
+on the held-out test partition:
+
+Model                  Accuracy  Balanced  Precision  Recall   F1       ROC-AUC
+---------------------  --------  --------  ---------  -------  -------  -------
+Random forest           0.9372    0.8587     0.9804    0.7214   0.8312   0.9300
+Majority baseline       0.7857    0.5000     0.0000    0.0000   0.0000   0.5000
+
+Test confusion matrices:
+
+Random forest:              Majority baseline:
+[[5,074, 20],                [[5,094, 0],
+ [387, 1,002]]                [1,389, 0]]
+
+The selected random forest improves on the test majority baseline by
+15.15 percentage points in accuracy, 35.87 points in balanced accuracy,
+and 0.430 in ROC-AUC. It detects 1,002 of the 1,389 defaults at the
+fixed threshold, while raising 20 false positives. It misses 387
+defaults. The baseline has no false positives because it never predicts
+default, but misses all 1,389 defaults. In a real lending context,
+false positives can mean unnecessary review or denied credit to a
+non-default borrower; false negatives can mean that a borrower who
+defaults was not flagged. The relative costs depend on the actual
+decision process and are not supplied by this dataset.
+
+The test AUC of 0.9300 is above the validation AUC of 0.9066. Test
+default recall is 0.7214 versus validation recall of 0.6888, with both
+measured at threshold 0.5. This supports the validation conclusion for
+this particular held-out sample. It is not proof that the same
+performance will hold on future time periods or different borrowers.
+The baseline test accuracy is 78.57%, again demonstrating why default
+recall and balanced accuracy matter in this imbalanced problem.
+
+The script saves validation_comparison.csv, test_comparison.csv,
+validation_roc_curves.png, test_roc_curves.png, and
+test_confusion_matrices.png. The test was scored once for the frozen
+winner and baseline. The final model artifact was then refit on all
+32,416 labelled rows for prediction of new cases; that refitted model
+does not produce the reported test metrics.
+
+======================================================================
+7. NEW-CASE EXAMPLE
+======================================================================
+
+The following invented case has no observed outcome:
+
+Age 35; annual income 60,000; RENT; employment 7 years; EDUCATION;
+grade B; loan amount 12,000; interest rate 11%; loan/income 0.20;
+historical default N; credit history 10 years.
+
+The saved all-data random forest returns:
+
+Scenario                                    P(default)  Class at 0.5
+------------------------------------------  ----------  ------------
+Given invented case                           0.0726       0
+Historical default changed from N to Y        0.2557       0
+
+Changing only the historical-default indicator increases this model's
+estimated probability in this example. The predicted class remains
+non-default because both probabilities are below the frozen 0.5
+threshold. This is a description of the model's response, not evidence
+that changing a person's history causes a change in outcome. The
+probability is not calibrated certainty; calibration was not separately
+evaluated.
+
+The example also raises a timing question: loan grade and interest rate
+should be included only if they are available at the intended
+prediction moment. If either is assigned during or after the decision
+being supported, it may constitute unavailable information or
+decision-time leakage for an earlier screening use.
+
+======================================================================
+8. LIMITATIONS AND CONCLUSION
+======================================================================
+
+First, the evaluation assumes rows are sampled at the row level. There
+is no borrower identifier with which to establish that separate
+profiles represent independent people. Grouping identical predictors
+prevents exact profile overlap across partitions, but it does not
+prevent one borrower from appearing with different profiles. The split
+is not chronological and cannot estimate future-period performance.
+
+Second, source provenance and whether the dataset is simulated have not
+been independently established in this analysis. If it is simulated,
+the metrics describe patterns generated by that process and may not
+transfer to real lending populations. Five ages above 100 and two
+employment lengths of 123 years were flagged and retained; such records
+may affect fitted relationships. There is no documented correction
+rule, so they were not silently changed or removed.
+
+Third, missing employment length and interest rate are imputed using
+training medians. This is a reproducible baseline choice, not proof
+that missingness is random or that the median is optimal. A separate
+calibration assessment was not performed, so probability values should
+not be interpreted as guaranteed frequencies. The 0.5 threshold was
+kept fixed as requested; a real operational threshold should reflect
+validated costs and policy requirements, not be tuned on the test set.
+
+Finally, a high validation or test score does not establish fairness,
+legal suitability, causal effects, or fitness for automated credit
+decisions. Those questions require additional domain, governance, and
+population-level evidence.
+
+Within the tested candidates and this split, the random forest is the
+best model by validation ROC-AUC and performs better than the majority
+baseline on the reported test metrics. The correct interpretation is
+"best among these candidates in this experiment," not universally best
+or guaranteed to perform similarly in deployment.
+
+======================================================================
+TEAM
+======================================================================
+
+Leonard Hell
+Klara Resch
