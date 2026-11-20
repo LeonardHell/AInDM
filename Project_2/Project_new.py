@@ -44,7 +44,7 @@ def det_hyper_params(results) -> dict:
     return evaluation
 
 evaluation = det_hyper_params(data)
-def Pareto_dom (n,para_results):
+def Pareto_dom (n,para_results,sharp=4):
     """return True if param_results is Pareto dominant regarding the three goals and False if not"""
     for x in range(int(np.log2(n))):
             for Grmode in GROUP_MODES:
@@ -52,7 +52,8 @@ def Pareto_dom (n,para_results):
                     QperG = 2**(i)
                     for KOmode in KNOCKOUT_MODES:
                         test_para = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
-                        if test_para["num_games"]< para_results["num_games"] and np.round(test_para["strongest_prob"],4)>np.round(para_results["strongest_prob"],4) and np.round(test_para["predictability"],4)<np.round(para_results["predictability"],4):
+                        #if test_para["num_games"]<= para_results["num_games"] and np.round(test_para["strongest_prob"],sharp)>=np.round(para_results["strongest_prob"],sharp) and np.round(test_para["predictability"],sharp)<=np.round(para_results["predictability"],sharp):
+                        if test_para["num_games"]<= para_results["num_games"] and test_para["strongest_prob"]>=para_results["strongest_prob"] and test_para["predictability"]<=para_results["predictability"]:
                             # So if test_para dominates param_results for all three goals
                             return False
     #No dominant parameter set found
@@ -78,7 +79,19 @@ def Pareto_Front (n):
                     if Pareto_front[str(x)]=={}:
                         del Pareto_front[str(x)]
     return Pareto_front,Pareto_front_parameters
-print(Pareto_Front(4)[0]["0"])
+
+def Len_of_data(d):
+    total_probs = 0
+    for x_dict in d.values():
+        for gr_dict in x_dict.values():
+            for q_dict in gr_dict.values():
+                for ko_dict in q_dict.values():
+                    total_probs += 1
+    return total_probs
+
+#print(Pareto_Front(4)[0].values())
+print(Len_of_data(Pareto_Front(32)[0]))
+print(Len_of_data(data["results"]["32"]))
 
 def Plotdata(function):
     x = np.array([1,2,3,4])
