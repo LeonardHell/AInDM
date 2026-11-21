@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import copy
 GROUP_MODES = ("snake", "random", "best_vs_best")
 KNOCKOUT_MODES = ("best_vs_best", "random", "best_vs_worst")
-ns = [4, 8, 16, 32]
+ns = [4, 8, 16, 32, 64]
 def LoadData():
     """ Load data from simulation """
     
-    with open("Project_2/tournament_results_lesssimul.txt", "r") as file:
+    with open("Project_2/tournament_results_n_(4, 8, 16, 32, 64)_1000.txt", "r") as file:
         data = json.load(file)
     return data
 data = LoadData() #results,(n), x , Gr-mode, QperG, KO-mode, probabilities
@@ -27,33 +27,42 @@ def NumberofGames(x,n=16,QperG = 2):
         sum+=2**i
     return sum+math.factorial(int(n/2**x*QperG))
 
-def Predictability(probs):
+def Predictability(n, probs):
     distribution = probs
-    return np.var(distribution)
+    return np.var(distribution)/n
 
 def det_hyper_params(results) -> dict:
     evaluation = copy.deepcopy(results)
     for n in ns:
-        for x in range(int(np.log2(n))):
+        for x in range(int(np.log2(n)) + 1):
             for Grmode in GROUP_MODES:
                 for i in range(x+1):
                     QperG = 2**(i)
                     for KOmode in KNOCKOUT_MODES:
                         probs = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
-                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":NumberofGames(x, n, QperG), "predictability":Predictability(probs), "strongest_prob":ProbStrongest(probs)}
+                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":NumberofGames(x, n, QperG), "predictability":Predictability(n, probs), "strongest_prob":ProbStrongest(probs)}
     return evaluation
 
 evaluation = det_hyper_params(data)
 def Pareto_dom (n,para_results,sharp=4):
     """return True if param_results is Pareto dominant regarding the three goals and False if not"""
-    for x in range(int(np.log2(n))):
+    for x in range(int(np.log2(n)) + 1):
             for Grmode in GROUP_MODES:
                 for i in range(x+1):
                     QperG = 2**(i)
                     for KOmode in KNOCKOUT_MODES:
                         test_para = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
                         #if test_para["num_games"]<= para_results["num_games"] and np.round(test_para["strongest_prob"],sharp)>=np.round(para_results["strongest_prob"],sharp) and np.round(test_para["predictability"],sharp)<=np.round(para_results["predictability"],sharp):
-                        if test_para["num_games"]<= para_results["num_games"] and test_para["strongest_prob"]>=para_results["strongest_prob"] and test_para["predictability"]<=para_results["predictability"]:
+                        if (
+                            test_para["num_games"] <= para_results["num_games"]
+                            and test_para["strongest_prob"] >= para_results["strongest_prob"]
+                            and test_para["predictability"] <= para_results["predictability"]
+                            and (
+                                test_para["num_games"] < para_results["num_games"]
+                                or test_para["strongest_prob"] > para_results["strongest_prob"]
+                                or test_para["predictability"] < para_results["predictability"]
+                            )
+                        ):
                             # So if test_para dominates param_results for all three goals
                             return False
     #No dominant parameter set found
@@ -62,7 +71,7 @@ def Pareto_dom (n,para_results,sharp=4):
 def Pareto_Front (n):
     Pareto_front = copy.deepcopy(evaluation["results"][str(n)])
     Pareto_front_parameters=[]
-    for x in range(int(np.log2(n))):
+    for x in range(int(np.log2(n)) + 1):
         for Grmode in GROUP_MODES:
             for i in range(x+1):
                 QperG = 2**(i)
@@ -90,8 +99,8 @@ def Len_of_data(d):
     return total_probs
 
 #print(Pareto_Front(4)[0].values())
-print(Len_of_data(Pareto_Front(32)[0]))
-print(Len_of_data(data["results"]["32"]))
+#print(Len_of_data(Pareto_Front(32)[0]))
+#print(Len_of_data(data["results"]["32"]))
 
 def Plotdata(function):
     x = np.array([1,2,3,4])
@@ -122,5 +131,32 @@ def Plotdata(function):
     plt.legend()
     # Display plot
     plt.show()
-Plotdata(ProbStrongest)
-Plotdata(Predictability)
+#Plotdata(ProbStrongest)
+#Plotdata(Predictability)
+
+def Plot_Pareto(n):
+    Pareto_front = Pareto_Front(n)[0]
+    num_games = []
+    strongest_prob = []
+    predictability = []
+    for x_dict in Pareto_front.values():
+        for gr_dict in x_dict.values():
+            for q_dict in gr_dict.values():
+                for ko_dict in q_dict.values():
+                    num_games.append(ko_dict["num_games"])
+                    strongest_prob.append(ko_dict["strongest_prob"])
+                    predictability.append(ko_dict["predictability"])
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(num_games, strongest_prob, predictability)
+    ax.set_xlabel("Number of games (minimize)")
+    ax.set_ylabel("Strongest player's win probability (maximize)")
+    ax.set_zlabel("Predictability (minimize)")
+    ax.set_title(f"Pareto Front for n={n}")
+    fig.tight_layout()
+    plt.show()
+    return fig, ax
+
+for n in ns:
+    Plot_Pareto(n)
