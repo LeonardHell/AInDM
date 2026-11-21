@@ -160,3 +160,39 @@ def Plot_Pareto(n):
 
 for n in ns:
     Plot_Pareto(n)
+
+
+
+def Weighted_Sum(lam1,lam2,n):
+    """ """
+    if not (0 < lam1 < 1) or not (0 < lam2 < 1) or not (lam1 + lam2 < 1):
+        raise ValueError("lam1 and lam2 must each be >0 and <1, and their sum must be <1")
+    def Objective(prob,x,n,QperG):
+        lam3 = 1-lam1-lam2
+        return lam1*NumberofGames(x,n,QperG)+lam2*Predictability(n,prob)-lam3*ProbStrongest(prob)
+    
+    d = data["results"][str(n)]
+    minOb = None
+    Front_parameters = []
+    for x in range(int(np.log2(n))+1):
+        for Grmode in GROUP_MODES:
+            for i in range(x+1):
+                QperG = 2**(i)
+                for KOmode in KNOCKOUT_MODES:
+                    prob = d[str(x)][Grmode][str(QperG)][KOmode]
+                    #print(Objective(prob,x,n,QperG))
+                    if minOb == None:
+                        minOb = Objective(prob,x,n,QperG)
+                        Front_parameters =[[str(x)],[Grmode],[str(QperG)],[KOmode]]
+                    elif Objective(prob,x,n,QperG) < minOb:
+                        minOb = Objective(prob,x,n,QperG)
+                        Front_parameters =[[str(x)],[Grmode],[str(QperG)],[KOmode]]
+                    elif Objective(prob,x,n,QperG) == minOb:
+                        Front_parameters.append([[str(x)],[Grmode],[str(QperG)],[KOmode]])
+                                   
+    return (Front_parameters,minOb)
+print(32,Weighted_Sum(0.0005,0.95,32))
+for n in ns:
+    print(n,Weighted_Sum(0.25,0.25,n))
+    print(n,Weighted_Sum(0.5,0.25,n))
+    print(n,Weighted_Sum(0.0005,0.95,n))
