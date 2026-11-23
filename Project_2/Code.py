@@ -22,7 +22,7 @@ rng = np.random.default_rng(42)
 GROUP_MODES = ("snake", "random", "best_vs_best")
 KNOCKOUT_MODES = ("best_vs_best", "random", "best_vs_worst")
 SIMULATIONS_PER_CONFIGURATION = 100_000
-ANALYSIS_SIMULATIONS = 100_000
+ANALYSIS_SIMULATIONS = 1000
 
 
 def play_match(player1, player2, skills):
@@ -32,8 +32,8 @@ def play_match(player1, player2, skills):
     p1_wins = s1 / (s1 + s2)
 
     if rng.random() < p1_wins:
-        return player1
-    return player2
+        return player1, abs(s1 - s2)
+    return player2, abs(s1 - s2)
 
 
 def create_groups(num_groups, skills, mode="snake"):
@@ -67,7 +67,7 @@ def create_groups(num_groups, skills, mode="snake"):
 def group_stage(groups, qualifiers_per_group, skills):
     """Play each group round-robin and return each group's qualifiers."""
     qualified = []
-
+    sum_tension_gr = 0
     for group in groups:
         if qualifiers_per_group > len(group):
             raise ValueError("A group cannot advance more players than it contains.")
@@ -75,8 +75,9 @@ def group_stage(groups, qualifiers_per_group, skills):
         points = {player: 0 for player in group}
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
-                winner = play_match(group[i], group[j], skills)
+                winner, tension = play_match(group[i], group[j], skills)
                 points[winner] += 1
+                sum_tension_gr += tension
 
         ranking = sorted(
             group,
@@ -85,7 +86,7 @@ def group_stage(groups, qualifiers_per_group, skills):
         )
         qualified.append(ranking[:qualifiers_per_group])
 
-    return qualified
+    return qualified, sum_tension_gr
 
 
 def knockout_stage(qualified, skills, mode="best_vs_best"):
@@ -98,6 +99,8 @@ def knockout_stage(qualified, skills, mode="best_vs_best"):
         raise ValueError("The knockout stage requires at least one player.")
     if len(players) & (len(players) - 1):
         raise ValueError("The number of knockout players must be a power of two.")
+
+    sum_tension_ko = 0
 
     while len(players) > 1:
         if mode == "random":
@@ -113,12 +116,12 @@ def knockout_stage(qualified, skills, mode="best_vs_best"):
                     for i in range(len(players) // 2)
                 ]
 
-        players = [
-            play_match(player1, player2, skills)
-            for player1, player2 in pairs
-        ]
+        for player1, player2 in pairs:
+            winner, tension = play_match(player1, player2, skills)
+            sum_tension_ko += tension
+            players.remove(player1 if winner == player2 else player2)
 
-    return players[0]
+    return players[0], sum_tension_ko
 
 
 def simulate_tournament(
@@ -149,8 +152,9 @@ def simulate_tournament(
 
     num_groups = knockout_players // qualifiers_per_group
     groups = create_groups(num_groups, skills, group_mode)
-    qualified = group_stage(groups, qualifiers_per_group, skills)
-    return knockout_stage(qualified, skills, knockout_mode)
+    qualified, sum_tension_gr = group_stage(groups, qualifiers_per_group, skills)
+    res = (*knockout_stage(qualified, skills, knockout_mode), sum_tension_gr)
+    return res
 
 
 def Monte_Carlo(
@@ -168,9 +172,10 @@ def Monte_Carlo(
         raise ValueError("simulations must be at least 1.")
 
     player_wins = [0] * n
+    tension = 0
     for _ in range(simulations):
         skills = init_players(n, "uniform")
-        winner = simulate_tournament(
+        winner, ten, ten_gr = simulate_tournament(
             x,
             skills,
             group_mode=group_mode,
@@ -178,8 +183,9 @@ def Monte_Carlo(
             knockout_mode=knockout_mode,
         )
         player_wins[winner] += 1
+        tension += ten + ten_gr
 
-    return [wins / simulations for wins in player_wins]
+    return [wins / simulations for wins in player_wins] , tension / simulations
 
 
 def run_analysis(n, simulations=ANALYSIS_SIMULATIONS):
@@ -214,8 +220,7 @@ def run_analysis(n, simulations=ANALYSIS_SIMULATIONS):
                             knockout_mode=knockout_mode,
                         )
                         results[str(n)][str(x)][group_mode][str(qualifiers_per_group)][
-                            knockout_mode
-                        ] = probabilities
+                            knockout_mode] = probabilities
     end = time.perf_counter()
     
     runtime = end - start

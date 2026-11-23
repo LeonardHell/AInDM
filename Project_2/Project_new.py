@@ -19,13 +19,19 @@ def Probabilities(x,Grmode,KOmode, QperG = 2,n=16):
     return x_prob
 
 def ProbStrongest(probs):
-    return probs[0]
+    sum_1 = 0
+    for i in range(len(probs)):
+        sum_1 += 1/((i+1))*probs[i]
+    return sum_1
 
 def NumberofGames(x,n=16,QperG = 2):
-    sum=0
+    sum1 = 0
+    sum_2 = 0
     for i in range(x):
-        sum+=2**i
-    return sum+math.factorial(int(n/2**x*QperG))
+        sum1 += 2**i
+    for j in range(int(n/2**x*QperG)):
+        sum_2 += j
+    return sum1 + (2**x)/QperG*sum_2
 
 def Predictability(n, probs):
     distribution = probs
@@ -39,8 +45,9 @@ def det_hyper_params(results) -> dict:
                 for i in range(x+1):
                     QperG = 2**(i)
                     for KOmode in KNOCKOUT_MODES:
-                        probs = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
-                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":NumberofGames(x, n, QperG), "predictability":Predictability(n, probs), "strongest_prob":ProbStrongest(probs)}
+                        probs, tension = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
+                        num_g = NumberofGames(x, n, QperG)
+                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":num_g, "predictability":tension/num_g, "strongest_prob":ProbStrongest(probs)}
     return evaluation
 
 evaluation = det_hyper_params(data)
