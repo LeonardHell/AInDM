@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
-
 import numpy as np
+import time
 
 seed = 47
 np.random.seed(seed)
-PLAYER_COUNTS = (4, 8, 16, 32, 64, 128)
+n = (4,8,16,32,64)
 
 
 def init_players(n, dist) -> list:
@@ -182,15 +182,13 @@ def Monte_Carlo(
     return [wins / simulations for wins in player_wins]
 
 
-def run_analysis(simulations=ANALYSIS_SIMULATIONS, list_of_n=None):
+def run_analysis(n, simulations=ANALYSIS_SIMULATIONS):
     """Evaluate every valid combination of tournament settings."""
-    if list_of_n is None:
-        list_of_n = PLAYER_COUNTS
-    else:
-        list_of_n = tuple(list_of_n)
-
+    start = time.perf_counter()
+    
     results = {}
-    for n in list_of_n:
+
+    for n in n:
         if n < 1 or n & (n - 1):
             raise ValueError("Every player count must be a positive power of two.")
         results[str(n)] = {}
@@ -218,10 +216,15 @@ def run_analysis(simulations=ANALYSIS_SIMULATIONS, list_of_n=None):
                         results[str(n)][str(x)][group_mode][str(qualifiers_per_group)][
                             knockout_mode
                         ] = probabilities
+    end = time.perf_counter()
+    
+    runtime = end - start
+    print(f"Runtime: {runtime:.4f} seconds")
 
     return {
         "metadata": {
-            "player_counts": list(list_of_n),
+            "player_counts": str(n),
+            "Runtime": f"{runtime:.4f} seconds",
             "player_index": "skill rank; index 0 is the strongest",
             "simulations_per_configuration": simulations,
             "group_modes": list(GROUP_MODES),
@@ -234,13 +237,13 @@ def run_analysis(simulations=ANALYSIS_SIMULATIONS, list_of_n=None):
 
 def save_results(results):
     """Save analysis as JSON-formatted text for later loading with json."""
-    output_path = Path(__file__).resolve().with_name("tournament_results.txt")
+    output_path = Path(__file__).resolve().with_name(f"tournament_results_n_{str(n)}_{ANALYSIS_SIMULATIONS}.txt")
     with output_path.open("w", encoding="utf-8") as output_file:
         json.dump(results, output_file, indent=2)
     return output_path
 
 
 if __name__ == "__main__":
-    analysis = run_analysis()
+    analysis = run_analysis(n)
     results_path = save_results(analysis)
     print(f"Saved tournament analysis to {results_path}")
