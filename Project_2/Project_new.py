@@ -29,7 +29,7 @@ def NumberofGames(x,n=16,QperG = 2):
 
 def Predictability(n, probs):
     distribution = probs
-    return np.var(distribution)/n
+    return np.var(distribution)*n
 
 def det_hyper_params(results) -> dict:
     evaluation = copy.deepcopy(results)
@@ -167,11 +167,11 @@ def Weighted_Sum(lam1,lam2,n):
     """ """
     if not (0 < lam1 < 1) or not (0 < lam2 < 1) or not (lam1 + lam2 < 1):
         raise ValueError("lam1 and lam2 must each be >0 and <1, and their sum must be <1")
-    def Objective(prob,x,n,QperG):
+    def Objective(dict):
         lam3 = 1-lam1-lam2
-        return lam1*NumberofGames(x,n,QperG)+lam2*Predictability(n,prob)-lam3*ProbStrongest(prob)
+        return lam1*dict["num_games"]+lam2*dict["predictability"]-lam3*dict["strongest_prob"]
     
-    d = data["results"][str(n)]
+    d = evaluation["results"][str(n)]
     minOb = None
     Front_parameters = []
     for x in range(int(np.log2(n))+1):
@@ -179,20 +179,21 @@ def Weighted_Sum(lam1,lam2,n):
             for i in range(x+1):
                 QperG = 2**(i)
                 for KOmode in KNOCKOUT_MODES:
-                    prob = d[str(x)][Grmode][str(QperG)][KOmode]
                     #print(Objective(prob,x,n,QperG))
+                    obje = Objective(d[str(x)][Grmode][str(QperG)][KOmode])
                     if minOb == None:
-                        minOb = Objective(prob,x,n,QperG)
+                        minOb = obje
                         Front_parameters =[[str(x)],[Grmode],[str(QperG)],[KOmode]]
-                    elif Objective(prob,x,n,QperG) < minOb:
-                        minOb = Objective(prob,x,n,QperG)
+                    elif obje < minOb:
+                        minOb = obje
                         Front_parameters =[[str(x)],[Grmode],[str(QperG)],[KOmode]]
-                    elif Objective(prob,x,n,QperG) == minOb:
+                    elif obje == minOb:
                         Front_parameters.append([[str(x)],[Grmode],[str(QperG)],[KOmode]])
                                    
     return (Front_parameters,minOb)
 print(32,Weighted_Sum(0.0005,0.95,32))
 for n in ns:
     print(n,Weighted_Sum(0.25,0.25,n))
-    print(n,Weighted_Sum(0.5,0.25,n))
-    print(n,Weighted_Sum(0.0005,0.95,n))
+    print(n,Weighted_Sum(0.0000000005,0.25,n))
+    print(n,Weighted_Sum(0.2/n**5,0.95,n))
+
