@@ -251,41 +251,59 @@ def epsilon_constraint(epsilon:list, n:int):
     epsilon_possible = copy.deepcopy(evaluation["results"][str(n)])
     min_j = None
     parameters = None
-    bindingness = epsilon
-    for eps in epsilon:
-        if not eps == None:
-            for x in range(int(np.log2(n)) + 1):
-                        for Grmode in GROUP_MODES:
-                            for i in range(x+1):
-                                QperG = 2**(i)
-                                for KOmode in KNOCKOUT_MODES:
-                                    params = epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
-                                    if params[list_hyper_parameters[epsilon.index(eps)]] > eps:
-                                        del epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
-                                    if len(epsilon_possible) < 1:
-                                        print("Impossible epsilon values")
-                                        return None
-
-    for x in epsilon_possible:
-        for Grmode in epsilon_possible[x]:
-            for QperG in epsilon_possible[x][Grmode]:
-                for KOmode in epsilon_possible[x][Grmode][QperG]:
-                    params = epsilon_possible[x][Grmode][QperG][KOmode]
-                    if min_j == None:
-                        min_j = params[missing_parameter]
-                        parameters = [[str(x)], [Grmode], [str(QperG)], [KOmode]]
-                    if min_j > params[missing_parameter]:
-                        min_j = params[missing_parameter]
-                        parameters = [[str(x)], [Grmode], [str(QperG)], [KOmode]]
-                        for eps in epsilon:
-                            if not eps == None:
-                                if eps == params[list_hyper_parameters[epsilon.index(eps)]]:
-                                    bindingness[epsilon.index(eps)] = True
-                                else:
-                                    bindingness[epsilon.index(eps)] = False
-    return min_j, parameters, bindingness
+    bindingness = copy.copy(epsilon)
+    for x in range(int(np.log2(n)) + 1):
+        for Grmode in GROUP_MODES:
+            for i in range(x+1):
+                QperG = 2**(i)
+                for KOmode in KNOCKOUT_MODES:
+                    params = epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
+                    if any(params[list_hyper_parameters[i]] > eps for i, eps in enumerate(epsilon) if eps is not None):
+                        continue #del epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
+                    else:
+                        if min_j == None:
+                            min_j = params[missing_parameter]
+                            parameters = [str(x), Grmode, str(QperG), KOmode]
+                            for i, eps in enumerate(epsilon):
+                                if not eps == None:
+                                    if eps == params[list_hyper_parameters[i]]:
+                                        bindingness[i] = True
+                                    else:
+                                        bindingness[i] = False
+                        else:
+                            if min_j == params[missing_parameter]:
+                                bind_2 = copy.copy(epsilon)
+                                parameters.append([str(x), Grmode, str(QperG),KOmode])
+                                for i, eps in enumerate(epsilon):
+                                    if not eps == None:
+                                        if eps == params[list_hyper_parameters[i]]:
+                                            bind_2[i] = True
+                                        else:
+                                            bind_2[i] = False
+                                bindingness.append(bind_2)
+                            if min_j > params[missing_parameter]:
+                                min_j = params[missing_parameter]
+                                parameters = [str(x), Grmode, str(QperG),KOmode]
+                                bind_3 = copy.copy(epsilon)
+                                for i, eps in enumerate(epsilon):
+                                    if not eps == None:
+                                        if eps == params[list_hyper_parameters[i]]:
+                                            bind_3[i] = True
+                                        else:
+                                            bind_3[i] = False
+                                bindingness = bind_3
+  
+    if parameters == None:
+        print("Impossible epsilon values")
+        return None
+    else:
+        return min_j, parameters, bindingness
 
 def goal_programming(goals, weights, n):
+    """ 
+    goals = [NumGames,Predictabil,Strongest Proba]
+    weights = analog
+    """
     dict = copy.deepcopy(evaluation["results"][str(n)])
     parameters = []
     hyper_params = []
@@ -309,11 +327,11 @@ def goal_programming(goals, weights, n):
                     else:
                         if min_value == value:
                             parameters.append([str(x),Grmode,str(QperG),KOmode])
-                            hyper_params.append(hyper_params)
+                            hyper_params.append(hyp_params)
                         if min_value > value:
                             min_value = value
                             parameters = [str(x),Grmode,str(QperG),KOmode]
-                            hyper_params = [hyper_params]
+                            hyper_params = [hyp_params]
     return min_value, hyper_params, parameters
 
 # Print best obtainable hyperparameters and their corresponding parameters
@@ -342,8 +360,9 @@ tension = {values["predictability"]}""")
 # Epsilon constraints
 
 #test
-#print(epsilon_constraint([0.1, 0.1, None], 16))
+print(epsilon_constraint([1/2, 0.5, None], 4))
+print(evaluation["results"][str(4)]['1']['snake'] ['1'] ['best_vs_worst'])
 
 # Goal Programming
 
-print(goal_programming([0.5, 0.1, -0.2], [0.5, 0.25, 0.25], 32))
+#print(goal_programming([0.5, 0.1, -0.2], [0.5, 0.25, 0.25], 32))
