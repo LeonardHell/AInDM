@@ -249,7 +249,6 @@ def epsilon_constraint(epsilon:list, n:int):
     idx = epsilon.index(None)
     missing_parameter = list_hyper_parameters[idx]
     epsilon_possible = copy.deepcopy(evaluation["results"][str(n)])
-    candidates = []
     min_j = None
     parameters = None
     bindingness = epsilon
@@ -261,7 +260,7 @@ def epsilon_constraint(epsilon:list, n:int):
                                 QperG = 2**(i)
                                 for KOmode in KNOCKOUT_MODES:
                                     params = epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
-                                    if params[list_hyper_parameters[epsilon.index(eps)]] <= eps:
+                                    if params[list_hyper_parameters[epsilon.index(eps)]] > eps:
                                         del epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
                                     if len(epsilon_possible) < 1:
                                         print("Impossible epsilon values")
@@ -286,6 +285,37 @@ def epsilon_constraint(epsilon:list, n:int):
                                     bindingness[epsilon.index(eps)] = False
     return min_j, parameters, bindingness
 
+def goal_programming(goals, weights, n):
+    dict = copy.deepcopy(evaluation["results"][str(n)])
+    parameters = []
+    hyper_params = []
+    min_value = None
+    def goal_function(params):
+        value = 0
+        for i in range(len(goals)):
+            value += weights[i]*abs(goals[i]-params[list_hyper_parameters[i]])
+        return value
+    for x in range(int(np.log2(n)) + 1):
+        for Grmode in GROUP_MODES:
+            for i in range(x+1):
+                QperG = 2**(i)
+                for KOmode in KNOCKOUT_MODES:
+                    hyp_params = dict[str(x)][Grmode][str(QperG)][KOmode]
+                    value = goal_function(hyp_params)
+                    if min_value == None:
+                        min_value = value
+                        parameters = [str(x),Grmode,str(QperG),KOmode]
+                        hyper_params = [hyp_params]
+                    else:
+                        if min_value == value:
+                            parameters.append([str(x),Grmode,str(QperG),KOmode])
+                            hyper_params.append(hyper_params)
+                        if min_value > value:
+                            min_value = value
+                            parameters = [str(x),Grmode,str(QperG),KOmode]
+                            hyper_params = [hyper_params]
+    return min_value, hyper_params, parameters
+
 # Print best obtainable hyperparameters and their corresponding parameters
 
 for n in ns:
@@ -309,7 +339,11 @@ numgam= {values["num_games"]}
 stronprob = {values["strongest_prob"]}
 tension = {values["predictability"]}""")
 
-# Print epsilon constraints
+# Epsilon constraints
 
 #test
-print(epsilon_constraint([0.1, 0.1, None], 16))
+#print(epsilon_constraint([0.1, 0.1, None], 16))
+
+# Goal Programming
+
+print(goal_programming([0.5, 0.1, -0.2], [0.5, 0.25, 0.25], 32))
