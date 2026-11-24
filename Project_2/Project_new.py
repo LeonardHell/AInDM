@@ -6,6 +6,9 @@ import copy
 GROUP_MODES = ("snake", "random", "best_vs_best")
 KNOCKOUT_MODES = ("best_vs_best", "random", "best_vs_worst")
 ns = [4, 8, 16, 32, 64]
+list_hyper_parameters = ["num_games", "predictability", "strongest_prob"]
+
+
 def LoadData():
     """ Load data from simulation """
     
@@ -51,7 +54,7 @@ def det_hyper_params(results) -> dict:
                     for KOmode in KNOCKOUT_MODES:
                         probs, tension = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
                         num_g,NumbonlyGroups = NumberofGames(x, n, QperG)
-                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":num_g/NumbonlyGroups, "predictability":tension/num_g, "strongest_prob":ProbStrongest(probs)}
+                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":num_g/NumbonlyGroups, "predictability":tension/num_g, "strongest_prob":-ProbStrongest(probs)}
     return evaluation
 
 evaluation = det_hyper_params(data)
@@ -66,11 +69,11 @@ def Pareto_dom (n,para_results,sharp=4):
                         #if test_para["num_games"]<= para_results["num_games"] and np.round(test_para["strongest_prob"],sharp)>=np.round(para_results["strongest_prob"],sharp) and np.round(test_para["predictability"],sharp)<=np.round(para_results["predictability"],sharp):
                         if (
                             test_para["num_games"] <= para_results["num_games"]
-                            and test_para["strongest_prob"] >= para_results["strongest_prob"]
+                            and test_para["strongest_prob"] <= para_results["strongest_prob"]
                             and test_para["predictability"] <= para_results["predictability"]
                             and (
                                 test_para["num_games"] < para_results["num_games"]
-                                or test_para["strongest_prob"] > para_results["strongest_prob"]
+                                or test_para["strongest_prob"] < para_results["strongest_prob"]
                                 or test_para["predictability"] < para_results["predictability"]
                             )
                         ):
@@ -180,7 +183,7 @@ def Weighted_Sum(lam1,lam2,n):
         raise ValueError("lam1 and lam2 must each be >0 and <1, and their sum must be <1")
     def Objective(dict):
         lam3 = 1-lam1-lam2
-        return lam1*dict["num_games"]+lam2*dict["predictability"]-lam3*dict["strongest_prob"]
+        return lam1*dict["num_games"]+lam2*dict["predictability"]+lam3*dict["strongest_prob"]
     
     d = evaluation["results"][str(n)]
     minOb = None
@@ -206,6 +209,21 @@ def Weighted_Sum(lam1,lam2,n):
                                    
     return (Front_parameters,minOb,values)
 
+def Weighted_Sum_Output(lam1,lam2,n):
+    Objective = 0
+
+    min_params, min_value = min_param("num_games", n)
+    lam1 = lam1*min_value
+    Objective += min_value
+
+    min_params, min_value = min_param("num_games", n)
+    lam2 = lam2*min_value
+    Objective += min_value
+    
+    lam1,lam2 = lam1/Objective,lam2/Objective
+    print("du rüssel")
+    return None
+
 def min_param(param: str, n: int):
     """return the parameter set that minimizes the given hyperparameter"""
     min_value = None
@@ -216,8 +234,6 @@ def min_param(param: str, n: int):
                 QperG = 2**(i)
                 for KOmode in KNOCKOUT_MODES:
                     params = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
-                    if param == "strongest_prob":
-                        params[param] = -params[param]
                     if min_value is None or params[param] < min_value:
                         min_value = params[param]
                         min_parameters = [[str(x)], [Grmode], [str(QperG)], [KOmode]]
@@ -225,8 +241,50 @@ def min_param(param: str, n: int):
                         min_parameters.append([[str(x)], [Grmode], [str(QperG)], [KOmode]])
     return (min_parameters, min_value)
 
+def epsilon_constraint(epsilon:list, n:int):
+    """
+    Epsilon constraint
+    Give Vektor of limits leaving one entry equal to None
+    """
+    idx = epsilon.index(None)
+    missing_parameter = list_hyper_parameters[idx]
+    epsilon_possible = copy.deepcopy(evaluation["results"][str(n)])
+    candidates = []
+    min_j = None
+    parameters = None
+    bindingness = epsilon
+    for eps in epsilon:
+        if not eps == None:
+            for x in range(int(np.log2(n)) + 1):
+                        for Grmode in GROUP_MODES:
+                            for i in range(x+1):
+                                QperG = 2**(i)
+                                for KOmode in KNOCKOUT_MODES:
+                                    params = epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
+                                    if params[list_hyper_parameters[epsilon.index(eps)]] <= eps:
+                                        del epsilon_possible[str(x)][Grmode][str(QperG)][KOmode]
+                                    if len(epsilon_possible) < 1:
+                                        print("Impossible epsilon values")
+                                        return None
 
-
+    for x in epsilon_possible:
+        for Grmode in epsilon_possible[x]:
+            for QperG in epsilon_possible[x][Grmode]:
+                for KOmode in epsilon_possible[x][Grmode][QperG]:
+                    params = epsilon_possible[x][Grmode][QperG][KOmode]
+                    if min_j == None:
+                        min_j = params[missing_parameter]
+                        parameters = [[str(x)], [Grmode], [str(QperG)], [KOmode]]
+                    if min_j > params[missing_parameter]:
+                        min_j = params[missing_parameter]
+                        parameters = [[str(x)], [Grmode], [str(QperG)], [KOmode]]
+                        for eps in epsilon:
+                            if not eps == None:
+                                if eps == params[list_hyper_parameters[epsilon.index(eps)]]:
+                                    bindingness[epsilon.index(eps)] = True
+                                else:
+                                    bindingness[epsilon.index(eps)] = False
+    return min_j, parameters, bindingness
 
 # Print best obtainable hyperparameters and their corresponding parameters
 
@@ -236,10 +294,10 @@ for n in ns:
         print(f"Best obtainable {param} for n={n}: {min_value} with parameters: {min_params}")
 
 # Plot Efficient Pareto Frontier
-
+"""
 for n in ns:
     Plot_Pareto(n)
-
+"""
 # Print Weighted sums
 n=32
 lam1 = 1/3
@@ -253,3 +311,5 @@ tension = {values["predictability"]}""")
 
 # Print epsilon constraints
 
+#test
+print(epsilon_constraint([0.1, 0.1, None], 16))
