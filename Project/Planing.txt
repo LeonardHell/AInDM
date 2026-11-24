@@ -29,37 +29,16 @@ computational results and connect conclusions explicitly to the course concepts.
 P5 — Multi-objective portfolio or engineering design (Multi-objective optimization)
 Choose a problem with two or three genuinely conflicting objectives, for example return/risk/sparsity,
 cost/emissions/reliability, or prediction accuracy/model complexity.
-Core tasks: define Pareto dominance, efficient solutions, and the criterion space; compute solu-
-tions with weighted-sum and ε-constraint scalarizations; visualize the Pareto front; explain sup-
-ported versus unsupported solutions where relevant. Extensions: goal programming, NSGA-II,
-robustness, or interactive preference selection. Difficulty: moderate
-
-
-Step1: 
-Get data from different energy sources for reliability,cost,C02 
-+ upper caps (existing stuff)
-programm excercise
-
-Refined: Data for Germany:
-- possible elecrticity sources
-- total costs 
-- current capacity in Germany
-- reliability
-- CO2 emission
-
-
-Szenario A (Dekarbonisierung durch höheren Anteil an Wasserstoff):
-Dieses Szenario zeichnet sich gemäß des genehmigten Szenariorahmens durch den vergleichsweise höchsten Wasserstoffbedarf in allen Szenarien aus. In einigen industriellen Bereichen, in denen heute die Unsicherheit bezüglich einer
-potenziellen Elektrifizierung noch groß erscheint, kommt verstärkt Wasserstoff zum Einsatz. Zur Deckung dieser Nachfrage wird in diesem Szenario eine hohe inländische Erzeugungskapazität unterstellt. Der Bruttostromverbrauch steigt
-gemäß Genehmigung der BNetzA auf rund 1.050 TWh im Jahr 2045. Die erneuerbaren Kapazitäten stimmen mit den
-Zielsetzungen im Erneuerbare-Energien-Gesetz (EEG) bzw. WindSeeG überein.
-Szenario B (Dekarbonisierung durch intensive Elektrifizierung):
-Szenario B setzt auf eine verstärkte direkte Elektrifizierung in allen Endenergieverbrauchssektoren. Wasserstoff kommt
-nur bei den Anwendungen zum Einsatz, in denen aus heutiger Sicht eine solche Direktelektrifizierung unwahrscheinlich
-erscheint. Effizienz auf der Nachfrageseite wirkt einem starken Anstieg des Stromverbrauchs entgegen. Der Anstieg des
-Stromverbrauchs wird so auf knapp 1.100 TWh begrenzt. Der erneuerbare Ausbaupfad entspricht den Zielsetzungen im
-EEG bzw. WindSeeG.
-Szenario C (Dekarbonisierung trotz geringerer Effizienz):
-Szenario C unterstellt ebenfalls eine verstärkte direkte Elektrifizierung in allen Endenergieverbrauchssektoren. Eine
-geringere Effizienz als im Szenario B sorgt für einen höheren Stromverbrauch von knapp 1.300 TWh. Damit einher geht
-auch die Notwendigkeit eines stärkeren Ausbaus der erneuerbaren Energien. 
+Core tasks: 
+define Pareto dominance, DONE
+ efficient solutions, DONE
+ and the criterion space; TO DO
+compute solutions with weighted-sum DONE
+ and ε-constraint scalarizations  DONE
+visualize the Pareto front; DONE
+ explain supported versus unsupported solutions where relevant. TO DO
+  
+Extensions: goal programming, DONE
+ NSGA-II,
+robustness, 
+interactive preference selection.
