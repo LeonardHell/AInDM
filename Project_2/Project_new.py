@@ -9,7 +9,7 @@ ns = [4, 8, 16, 32, 64]
 def LoadData():
     """ Load data from simulation """
     
-    with open("Project_2/tournament_results_n_(4, 8, 16, 32, 64)_1000.txt", "r") as file:
+    with open("Project_2/tournament_results_n_(4, 8, 16, 32, 64)_100000.txt", "r") as file:
         data = json.load(file)
     return data
 data = LoadData() #results,(n), x , Gr-mode, QperG, KO-mode, probabilities
@@ -27,11 +27,15 @@ def ProbStrongest(probs):
 def NumberofGames(x,n=16,QperG = 2):
     sum1 = 0
     sum_2 = 0
+    sum_3 = 0
     for i in range(x):
         sum1 += 2**i
     for j in range(int(n/2**x*QperG)):
         sum_2 += j
-    return sum1 + (2**x)/QperG*sum_2
+    for j in range(n):
+        sum_3 += j
+    NumbonlyGroup = sum_3
+    return (sum1 + (2**x)/QperG*sum_2),NumbonlyGroup
 
 def Predictability(n, probs):
     distribution = probs
@@ -46,8 +50,8 @@ def det_hyper_params(results) -> dict:
                     QperG = 2**(i)
                     for KOmode in KNOCKOUT_MODES:
                         probs, tension = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
-                        num_g = NumberofGames(x, n, QperG)
-                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":num_g, "predictability":tension/num_g, "strongest_prob":ProbStrongest(probs)}
+                        num_g,NumbonlyGroups = NumberofGames(x, n, QperG)
+                        evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode] = {"probs":probs, "num_games":num_g/NumbonlyGroups, "predictability":tension/num_g, "strongest_prob":ProbStrongest(probs)}
     return evaluation
 
 evaluation = det_hyper_params(data)
@@ -165,13 +169,13 @@ def Plot_Pareto(n):
     plt.show()
     return fig, ax
 
-for n in ns:
-    Plot_Pareto(n)
-
-
 
 def Weighted_Sum(lam1,lam2,n):
-    """ """
+    """ Returns the minimum of the weighted sum as parameters and value
+     Args
+      lam1 : weights number of games
+      lam2 : weights predictability
+      """
     if not (0 < lam1 < 1) or not (0 < lam2 < 1) or not (lam1 + lam2 < 1):
         raise ValueError("lam1 and lam2 must each be >0 and <1, and their sum must be <1")
     def Objective(dict):
@@ -191,16 +195,61 @@ def Weighted_Sum(lam1,lam2,n):
                     if minOb == None:
                         minOb = obje
                         Front_parameters =[[str(x)],[Grmode],[str(QperG)],[KOmode]]
+                        values = d[str(x)][Grmode][str(QperG)][KOmode]
                     elif obje < minOb:
                         minOb = obje
                         Front_parameters =[[str(x)],[Grmode],[str(QperG)],[KOmode]]
+                        values = d[str(x)][Grmode][str(QperG)][KOmode]
                     elif obje == minOb:
                         Front_parameters.append([[str(x)],[Grmode],[str(QperG)],[KOmode]])
+                        values.append(d[str(x)][Grmode][str(QperG)][KOmode])
                                    
-    return (Front_parameters,minOb)
-print(32,Weighted_Sum(0.0005,0.95,32))
+    return (Front_parameters,minOb,values)
+
+def min_param(param: str, n: int):
+    """return the parameter set that minimizes the given hyperparameter"""
+    min_value = None
+    min_parameters = []
+    for x in range(int(np.log2(n)) + 1):
+        for Grmode in GROUP_MODES:
+            for i in range(x+1):
+                QperG = 2**(i)
+                for KOmode in KNOCKOUT_MODES:
+                    params = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
+                    if param == "strongest_prob":
+                        params[param] = -params[param]
+                    if min_value is None or params[param] < min_value:
+                        min_value = params[param]
+                        min_parameters = [[str(x)], [Grmode], [str(QperG)], [KOmode]]
+                    elif params[param] == min_value:
+                        min_parameters.append([[str(x)], [Grmode], [str(QperG)], [KOmode]])
+    return (min_parameters, min_value)
+
+
+
+
+# Print best obtainable hyperparameters and their corresponding parameters
+
 for n in ns:
-    print(n,Weighted_Sum(0.25,0.25,n))
-    print(n,Weighted_Sum(0.0000000005,0.25,n))
-    print(n,Weighted_Sum(0.2/n**5,0.95,n))
+     for param in ["num_games", "strongest_prob", "predictability"]:
+        min_params, min_value = min_param(param, n)
+        print(f"Best obtainable {param} for n={n}: {min_value} with parameters: {min_params}")
+
+# Plot Efficient Pareto Frontier
+
+for n in ns:
+    Plot_Pareto(n)
+
+# Print Weighted sums
+n=32
+lam1 = 1/3
+lam2 = 1/3
+para,minob,values = Weighted_Sum(lam1,lam2,n)
+print(n,para,minob)
+print(f"""
+numgam= {values["num_games"]}
+stronprob = {values["strongest_prob"]}
+tension = {values["predictability"]}""")
+
+# Print epsilon constraints
 

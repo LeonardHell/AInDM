@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import time
 
-seed = 47
+seed = 48
 np.random.seed(seed)
 n = (4,8,16,32,64)
 
@@ -21,7 +21,7 @@ rng = np.random.default_rng(42)
 
 GROUP_MODES = ("snake", "random", "best_vs_best")
 KNOCKOUT_MODES = ("best_vs_best", "random", "best_vs_worst")
-SIMULATIONS_PER_CONFIGURATION = 100_000
+SIMULATIONS_PER_CONFIGURATION = 1_000
 ANALYSIS_SIMULATIONS = 1000
 
 
@@ -30,10 +30,10 @@ def play_match(player1, player2, skills):
     s1 = skills[player1]
     s2 = skills[player2]
     p1_wins = s1 / (s1 + s2)
-
+    p2_wins = s2 / (s1+s2)
     if rng.random() < p1_wins:
         return player1, abs(s1 - s2)
-    return player2, abs(s1 - s2)
+    return player2, abs(p1_wins-p2_wins)
 
 
 def create_groups(num_groups, skills, mode="snake"):
