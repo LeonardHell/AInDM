@@ -334,12 +334,40 @@ def goal_programming(goals, weights, n):
                             hyper_params = [hyp_params]
     return min_value, hyper_params, parameters
 
+def Criterion_Space(n):
+    """
+    Plots the criterion space of our data as a scatterplot and returns the range
+    """
+    points = []
+    for x in range(int(np.log2(n)) + 1):
+        for Grmode in GROUP_MODES:
+            for i in range(x+1):
+                QperG = 2**(i)
+                for KOmode in KNOCKOUT_MODES:
+                    datadict = evaluation["results"][str(n)][str(x)][Grmode][str(QperG)][KOmode]
+                    points.append([datadict["num_games"],datadict["predictability"],datadict["strongest_prob"]])
+    x = [point[0] for point in points]
+    y = [point[1] for point in points]
+    z = [point[2] for point in points]
+    ranges =[(np.min(x),np.max(x)),(np.min(y),np.max(y)),(np.min(z),np.max(z))]
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+
+    ax.scatter(x, y, z)
+    ax.scatter(ranges[0][0],ranges[1][0],ranges[2][0],color="red")
+    ax.set_xlabel("Number of Games (normed)")
+    ax.set_ylabel("Predictability")
+    ax.set_zlabel("-Strongest Prob")
+    plt.show()
+    return ranges,points
+
 # Print best obtainable hyperparameters and their corresponding parameters
 
-for n in ns:
+for n in [8]:
      for param in ["num_games", "strongest_prob", "predictability"]:
         min_params, min_value = min_param(param, n)
-        print(f"Best obtainable {param} for n={n}: {min_value} with parameters: {min_params}")
+        #print(f"Best obtainable {param} for n={n}: {min_value:.2f} with parameters: {min_params}")
+        print(f"Best obtainable {param} for n={n}: {min_value:.2f}")
 
 # Plot Efficient Pareto Frontier
 """
@@ -347,21 +375,20 @@ for n in ns:
     Plot_Pareto(n)
 """
 # Print Weighted sums
-n=32
-lam1 = 1/3
-lam2 = 1/3
-para,minob,values = Weighted_Sum(lam1,lam2,n)
-print(n,para,minob)
-print(f"""
-numgam= {values["num_games"]}
-stronprob = {values["strongest_prob"]}
-tension = {values["predictability"]}""")
 
+lam1 = 1/14
+lam2 = 1/9
+for n in [8]:
+    para,minob,values = Weighted_Sum(lam1,lam2,n)
+    print(f"Obtained minimum for n = {n} is {minob:.2f} with numgam = {values['num_games']:.2f} stronprob = {values['strongest_prob']:.2f} tension = {values['predictability']:.2f}")
+
+#4: 1/3, 1/3
+#8: 1/3, 1/3
 # Epsilon constraints
 
 #test
-print(epsilon_constraint([1/2, 0.5, None], 4))
-print(evaluation["results"][str(4)]['1']['snake'] ['1'] ['best_vs_worst'])
+#print(epsilon_constraint([1/2, 0.5, None], 4))
+#print(evaluation["results"][str(4)]['1']['snake'] ['1'] ['best_vs_worst'])
 
 # Goal Programming
 
